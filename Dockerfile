@@ -29,10 +29,10 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # layer cache much more effective.
 COPY backend/pyproject.toml backend/uv.lock ./
 
-RUN uv sync --frozen --no-dev
-
-# Copy backend source
+# Copy backend source — must be before uv sync so hatchling can build
 COPY backend/app ./app
+
+RUN uv sync --frozen --no-dev
 
 # Copy compiled frontend
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
