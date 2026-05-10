@@ -1,0 +1,3 @@
+# Persée — Contributors to a publication
+# Retrieve contributors for a given Persée publication.
+# Parameters: $publication_id (string, Persée document ID)

@@ -1,0 +1,3 @@
+# IdRef — Thesis lookup
+# Retrieve thesis records for an IdRef person.
+# Parameters: $person_id (string, IdRef URI)

@@ -1,0 +1,3 @@
+# HAL — Contributors to a publication
+# Retrieve contributors for a given HAL publication.
+# Parameters: $publication_id (string, HAL document ID)

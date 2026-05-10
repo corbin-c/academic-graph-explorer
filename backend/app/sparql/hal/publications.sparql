@@ -1,0 +1,3 @@
+# HAL — Publications lookup
+# Search for publications in HAL by author or identifier.
+# Parameters: $author_id (string, HAL author ID)

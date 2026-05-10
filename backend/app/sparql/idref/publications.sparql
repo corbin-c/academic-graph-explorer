@@ -1,0 +1,3 @@
+# IdRef — Publications by author
+# Retrieve publications associated with an IdRef person.
+# Parameters: $person_id (string, IdRef URI)

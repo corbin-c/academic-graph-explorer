@@ -1,0 +1,3 @@
+# IdRef — Person lookup
+# Search for a person by name or IdRef identifier.
+# Parameters: $name (string)
