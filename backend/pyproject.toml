@@ -1,0 +1,15 @@
+[project]
+name = "academic-graph-explorer-backend"
+version = "0.1.0"
+description = "FastAPI backend for Academic Graph Explorer"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "aiosqlite>=0.20.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
