@@ -1,0 +1,4 @@
+{
+  "responseHeader": { "status": 0, "QTime": 1, "params": { "fl": "*", "q": "persname_t:(there_are_no_results_for_this_query)", "wt": "json" } },
+  "response": { "numFound": 0, "start": 0, "docs": [] }
+}
