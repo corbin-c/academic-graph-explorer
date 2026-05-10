@@ -19,6 +19,7 @@ class RelationshipType(StrEnum):
     PRODUCED = "produced"
     FUNDED_BY = "fundedBy"
     SUPERVISES = "supervises"
+    DIRECTED_BY = "directedBy"
 
 
 class Dataset(BaseModel):

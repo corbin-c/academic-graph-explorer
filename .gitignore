@@ -30,3 +30,6 @@ app-data/
 
 # Build
 frontend/dist/
+
+# Legacy
+old/
