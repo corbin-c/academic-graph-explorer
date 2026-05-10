@@ -1,3 +1,53 @@
-# IdRef — Thesis lookup
-# Retrieve thesis records for an IdRef person.
-# Parameters: $person_id (string, IdRef URI)
+# IdRef — Thesis information
+# Retrieve thesis details: lab affiliation, directors, and PhD students.
+#
+# Parameters:
+#   $person     (URI)  — IdRef person URI
+#   $lab_id     (URI)  — IdRef lab URI (for lab → students query)
+#   $director   (URI)  — IdRef director URI (for director → students query)
+
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX marcrel: <http://id.loc.gov/vocabulary/relators/>
+
+# ----- Thesis lab + directors for a given person -----
+
+# SELECT DISTINCT ?nom ?titre ?uri
+#   (GROUP_CONCAT(DISTINCT ?diruri; SEPARATOR=" | ") AS ?diruris)
+#   (GROUP_CONCAT(DISTINCT ?directeur; SEPARATOR=" | ") AS ?directeurs)
+#   (GROUP_CONCAT(DISTINCT ?laburi; SEPARATOR=" | ") AS ?laburis)
+#   (GROUP_CONCAT(DISTINCT ?labo; SEPARATOR=" | ") AS ?labos)
+# WHERE {
+#   $person skos:prefLabel ?nom.
+#   ?uri ?relator $person.
+#   ?uri dcterms:bibliographicCitation ?titre.
+#   ?uri <http://www.abes.fr/vocabularies/theses/roles/981> ?laburi.
+#   ?uri <http://www.abes.fr/vocabularies/theses/roles/727> ?diruri.
+#   ?relator skos:prefLabel ?role.
+#   ?laburi skos:prefLabel ?labo.
+#   ?diruri skos:prefLabel ?directeur.
+# } GROUP BY ?nom ?titre ?uri
+
+# ----- Lab → PhD students -----
+
+# SELECT DISTINCT ?docturi ?docteur
+#   (GROUP_CONCAT(DISTINCT ?thesuri; SEPARATOR=" | ") AS ?thesuris)
+#   (GROUP_CONCAT(DISTINCT ?titre; SEPARATOR=" | ") AS ?titres)
+# WHERE {
+#   ?thesuri <http://www.abes.fr/vocabularies/theses/roles/981> $lab_id.
+#   ?thesuri dcterms:bibliographicCitation ?titre.
+#   ?thesuri marcrel:aut ?docturi.
+#   ?docturi skos:prefLabel ?docteur.
+# } GROUP BY ?docturi ?docteur
+
+# ----- Director → PhD students -----
+
+# SELECT DISTINCT ?docturi ?docteur
+#   (GROUP_CONCAT(DISTINCT ?thesuri; SEPARATOR=" | ") AS ?thesuris)
+#   (GROUP_CONCAT(DISTINCT ?titre; SEPARATOR=" | ") AS ?titres)
+# WHERE {
+#   ?thesuri <http://www.abes.fr/vocabularies/theses/roles/727> $director.
+#   ?thesuri dcterms:bibliographicCitation ?titre.
+#   ?thesuri marcrel:aut ?docturi.
+#   ?docturi skos:prefLabel ?docteur.
+# } GROUP BY ?docturi ?docteur

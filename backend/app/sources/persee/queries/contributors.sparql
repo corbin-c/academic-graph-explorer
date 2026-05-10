@@ -1,3 +1,17 @@
 # Persée — Contributors to a publication
-# Retrieve contributors for a given Persée publication.
-# Parameters: $publication_id (string, Persée document ID)
+# Retrieve all contributors for a given Persée publication.
+#
+# Parameters:
+#   $publication_id (URI) — Persée publication URI
+
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX marcrel: <http://id.loc.gov/vocabulary/relators/>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+
+SELECT DISTINCT ?auturi ?aut ?title
+WHERE {
+  $publication_id dcterms:bibliographicCitation ?title.
+  $publication_id ?rel ?auturi.
+  ?auturi a foaf:Person.
+  ?auturi foaf:name ?aut.
+}

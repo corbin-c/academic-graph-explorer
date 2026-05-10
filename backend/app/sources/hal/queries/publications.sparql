@@ -1,3 +1,24 @@
-# HAL — Publications lookup
-# Search for publications in HAL by author or identifier.
-# Parameters: $author_id (string, HAL author ID)
+# HAL — Find co-contributors via shared publications
+# Cross-reference an IdRef person to HAL and retrieve co-authors.
+#
+# Parameters:
+#   $name (string) — person name (skos:prefLabel in IdRef)
+
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT DISTINCT ?person ?auth
+WHERE {
+  ?person skos:prefLabel "$name".
+  OPTIONAL {
+    ?person owl:sameAs ?id.
+    FILTER (CONTAINS(STR(?id), "archives-ouvertes.fr"))
+    BIND(URI(REPLACE(STR(?id), "#.*", "")) AS ?idHal)
+    SERVICE <https://sparql.archives-ouvertes.fr/sparql> {
+      ?idHal foaf:publications ?publi.
+      ?authuri foaf:publications ?publi.
+      ?authuri foaf:name ?auth.
+    }
+  }
+}

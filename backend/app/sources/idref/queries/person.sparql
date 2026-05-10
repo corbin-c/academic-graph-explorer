@@ -1,3 +1,51 @@
 # IdRef — Person lookup
-# Search for a person by name or IdRef identifier.
-# Parameters: $name (string)
+# Retrieve detailed information about a person by name or IdRef identifier.
+#
+# Parameters:
+#   $name    (string)  — person name for foaf:name match
+#   $person  (URI)     — direct IdRef person URI
+
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX bio: <http://purl.org/vocab/bio/0.1/>
+PREFIX dbpedia-owl: <http://dbpedia.org/ontology/>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wdtn: <http://www.wikidata.org/prop/direct-normalized/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?person ?nom ?genre ?naissance ?mort ?lang ?pays
+  (GROUP_CONCAT(DISTINCT ?id; SEPARATOR=" | ") AS ?ids)
+WHERE {
+  ?person foaf:name "$name".
+  ?person skos:prefLabel ?nom.
+  OPTIONAL {
+    ?person foaf:gender ?genre.
+  }
+  OPTIONAL {
+    ?person owl:sameAs ?id.
+  }
+  OPTIONAL { ?person bio:event [ a bio:Birth ; bio:date ?naissance ] }
+  OPTIONAL { ?person bio:event [ a bio:Death ; bio:date ?mort ] }
+  OPTIONAL {
+    ?person dcterms:language ?languri.
+    BIND (REPLACE(STR(?languri), ".*/", "", "") AS ?iso)
+    SERVICE <https://query.wikidata.org/sparql> {
+      ?language wdt:P31 wd:Q34770 .
+      ?language wdt:P220 ?iso.
+      ?language rdfs:label ?lang.
+      FILTER (lang(?lang) = "en")
+    }
+  }
+  OPTIONAL {
+    ?person dbpedia-owl:citizenship ?citizenship.
+    SERVICE <https://query.wikidata.org/sparql> {
+      ?country wdt:P31 wd:Q3624078 .
+      ?country wdtn:P1566 ?citizenship.
+      ?country rdfs:label ?pays.
+      FILTER (lang(?pays) = "en")
+    }
+  }
+} GROUP BY ?person ?nom ?genre ?naissance ?mort ?lang ?pays
