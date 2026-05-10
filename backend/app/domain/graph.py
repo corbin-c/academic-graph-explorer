@@ -1,32 +1,19 @@
 """
 Domain model for the academic graph.
 
-The graph is composed of Nodes (academic entities) and Edges (relationships).
+The graph is composed of Entities (nodes) and Relationships (edges).
 A Neighborhood is a bounded subgraph around a central entity.
 """
 
 from pydantic import BaseModel
 
-
-class Node(BaseModel):
-    """An academic entity in the graph."""
-
-    id: str
-    label: str
-    type: str  # e.g. Person, Publication, Project, Institution, Dataset
-
-
-class Edge(BaseModel):
-    """A directional relationship between two nodes."""
-
-    source: str
-    target: str
-    predicate: str  # e.g. authorOf, cites, affiliatedWith
+from app.domain.entity import Entity
+from app.domain.relationship import Relationship
 
 
 class Neighborhood(BaseModel):
-    """A bounded neighborhood of the graph around a central node."""
+    """A bounded neighborhood of the graph around a central entity."""
 
-    center: Node
-    nodes: list[Node]
-    edges: list[Edge]
+    center: Entity
+    nodes: list[Entity]
+    edges: list[Relationship]
