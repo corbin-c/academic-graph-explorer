@@ -113,7 +113,10 @@ class HttpSparqlClient(SparqlClient):
         )
         cached = result.scalar_one_or_none()
         if cached is not None:
-            age = (datetime.now(timezone.utc) - cached.created_at).total_seconds()
+            cached_created = cached.created_at
+            if cached_created.tzinfo is None:
+                cached_created = cached_created.replace(tzinfo=timezone.utc)
+            age = (datetime.now(timezone.utc) - cached_created).total_seconds()
             if age < cached.ttl_seconds:
                 return json.loads(cached.response_json)
 

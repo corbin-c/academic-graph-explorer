@@ -6,7 +6,17 @@ os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.cache.database import engine
+from app.cache.models import Base
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+async def _initialize_database():
+    """Reset and recreate DB tables for each test (ASGITransport bypasses lifespan)."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
 
 
 @pytest.fixture
