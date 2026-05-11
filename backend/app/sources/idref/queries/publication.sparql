@@ -1,0 +1,16 @@
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX bibo: <http://purl.org/ontology/bibo/>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+
+SELECT DISTINCT
+  ?title
+  (SAMPLE(?doi_val) AS ?doi)
+  ?sameAs
+  ?uri
+WHERE {
+  $publication dcterms:bibliographicCitation ?title .
+
+  OPTIONAL { $publication bibo:doi ?doi_val . }
+  OPTIONAL { $publication owl:sameAs ?sameAs . }
+  OPTIONAL { $publication bibo:uri ?uri . }
+}

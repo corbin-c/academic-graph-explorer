@@ -74,3 +74,28 @@ class Contribution(BaseModel):
     title: str
     role: str | None = None
     co_author_name: str | None = None
+
+
+class Publication(BaseModel):
+    """Detailed information about a publication from IdRef/SUDOC."""
+
+    id: str
+    title: str
+    doi: str | None = None
+    identifiers: list[Identifier] = []
+
+
+class PersonRole(BaseModel):
+    """A person linked to a publication with their role."""
+
+    id: str
+    name: str
+    role: str | None = None
+
+
+class OrgRole(BaseModel):
+    """An organization linked to a publication with its role."""
+
+    id: str
+    name: str
+    role: str | None = None

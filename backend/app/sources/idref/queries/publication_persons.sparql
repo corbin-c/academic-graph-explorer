@@ -1,0 +1,15 @@
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+
+SELECT DISTINCT
+  ?person
+  ?person_name
+  ?person_role
+WHERE {
+  $publication ?person_relator ?person .
+  ?person a foaf:Person .
+  OPTIONAL {
+    ?person skos:prefLabel ?person_name .
+    ?person_relator skos:prefLabel ?person_role .
+  }
+}
