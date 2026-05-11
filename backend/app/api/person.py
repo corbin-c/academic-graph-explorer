@@ -4,20 +4,15 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
-from app.domain.entity import OrganizationRef, Person
+from app.domain.entity import Contribution, OrganizationRef, Person
 from app.sources.idref.sparql import IdRefSparqlClient
 
 router = APIRouter(prefix="/person", tags=["person"])
 
-# Load the SPARQL query template
-_query_path = (
-    Path(__file__).resolve().parent.parent
-    / "sources"
-    / "idref"
-    / "queries"
-    / "person.sparql"
-)
-PERSON_QUERY = _query_path.read_text()
+# Load SPARQL query templates
+_query_prefix = Path(__file__).resolve().parent.parent / "sources" / "idref" / "queries"
+PERSON_QUERY = (_query_prefix / "person.sparql").read_text()
+CONTRIBUTIONS_QUERY = (_query_prefix / "person_contributions.sparql").read_text()
 
 
 def _normalize_person_id(person_id: str) -> str:
@@ -52,6 +47,35 @@ def _parse_person_bindings(person_id: str, bindings: list[dict]) -> Person:
         note=note,
         organizations=[OrganizationRef(name=o) for o in orgs],
     )
+
+
+# ── Sub-resource routes (must be before the catch-all) ──
+
+
+@router.get("/{person_id:path}/contributions")
+async def get_person_contributions(person_id: str):
+    """Get co-authored publications for a person from IdRef."""
+    person_uri = _normalize_person_id(person_id)
+    query = CONTRIBUTIONS_QUERY.replace("$person", f"<{person_uri}>")
+
+    client = IdRefSparqlClient()
+    result = await client.query(query)
+    bindings = result.get("results", {}).get("bindings", [])
+
+    return [
+        Contribution(
+            id=b["doc"]["value"],
+            title=b["title"]["value"],
+            role=b.get("role", {}).get("value") if "role" in b else None,
+            co_author_name=b.get("author_name", {}).get("value")
+            if "author_name" in b
+            else None,
+        )
+        for b in bindings
+    ]
+
+
+# ── Catch-all detail route ──
 
 
 @router.get("/{person_id:path}")

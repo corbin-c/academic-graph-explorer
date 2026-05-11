@@ -50,3 +50,27 @@ class Organization(BaseModel):
     id: str
     name: str
     note: str | None = None
+
+
+class PersonRef(BaseModel):
+    """A lightweight person reference (e.g. org member listing)."""
+
+    id: str
+    name: str
+
+
+class PublicationRef(BaseModel):
+    """A lightweight publication reference."""
+
+    id: str
+    title: str
+    author_name: str | None = None
+
+
+class Contribution(BaseModel):
+    """A contribution entry — publication with role and sampled co-author."""
+
+    id: str
+    title: str
+    role: str | None = None
+    co_author_name: str | None = None

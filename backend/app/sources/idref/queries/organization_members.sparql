@@ -1,0 +1,13 @@
+# IdRef — Organization members
+# Retrieve persons who are members of an organization.
+#
+# Parameters:
+#   $organization  (URI)  — IdRef organization URI
+
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX org: <http://www.w3.org/ns/org#>
+
+SELECT DISTINCT ?name ?person WHERE {
+  ?person org:memberOf $organization.
+  ?person skos:prefLabel ?name.
+}

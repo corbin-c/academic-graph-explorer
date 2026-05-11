@@ -10,8 +10,8 @@ PREFIX org: <http://www.w3.org/ns/org#>
 PREFIX owl: <http://www.w3.org/2002/07/owl#>
 PREFIX bibo: <http://purl.org/ontology/bibo/>
 
-SELECT DISTINCT ?titre ?role ?doc ?auteur ?auth_name WHERE {
-?doc ?relator <http://www.idref.fr/121375307/id>; dcterms:bibliographicCitation ?titre. 
+SELECT DISTINCT ?title ?role ?doc ?auteur ?author_name WHERE {
+?doc ?relator <http://www.idref.fr/121375307/id>; dcterms:bibliographicCitation ?title. 
 ?relator skos:prefLabel ?role.
 ?doc marcrel:aut ?auteur.
 ?auteur skos:prefLabel ?auth_name.
@@ -43,3 +43,118 @@ SELECT DISTINCT ?name ?note ?org ?orgName WHERE {
     }
   }
 }
+
+-> expected response:
+
+{ "head": { "link": [], "vars": ["name", "note", "org", "orgName"] },
+  "results": { "distinct": false, "ordered": true, "bindings": [
+    { "name": { "type": "literal", "value": "Esclapez, Christine (19..-....)" }	, "note": { "type": "literal", "value": "Musicologue. Professeure des universit\u00E9s, responsable de l'axe Pratiques, explorations et cr\u00E9ations artistiques, laboratoire Perception, repr\u00E9sentations, image, son, musique (PRISM, UMR 7061), Aix-Marseille universit\u00E9 (2026)" }	, "org": { "type": "uri", "value": "http://www.idref.fr/227816196/id" }	, "orgName": { "type": "literal", "value": "Laboratoire Perception, Repr\u00E9sentations, Image, Son, Musique (PRISM, UMR 7061) (Marseille)" }},
+    { "name": { "type": "literal", "value": "Esclapez, Christine (19..-....)" }	, "note": { "type": "literal", "value": "Musicologue. Professeure des universit\u00E9s, responsable de l'axe Pratiques, explorations et cr\u00E9ations artistiques, laboratoire Perception, repr\u00E9sentations, image, son, musique (PRISM, UMR 7061), Aix-Marseille universit\u00E9 (2026)" }	, "org": { "type": "uri", "value": "http://www.idref.fr/15863621X/id" }	, "orgName": { "type": "literal", "value": "Aix-Marseille Universit\u00E9 (2012-....)" }} ] } }
+
+
+____
+
+Members of an organization:
+
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX org: <http://www.w3.org/ns/org#>
+
+SELECT DISTINCT ?name ?person WHERE {
+  ?person org:memberOf <http://www.idref.fr/227816196/id>.
+  ?person skos:prefLabel ?name.
+}
+
+___
+
+Publications affiliated to an organization:
+
+
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX marcrel: <http://id.loc.gov/vocabulary/relators/>
+
+SELECT DISTINCT ?title ?doc ?author ?author_name WHERE {
+?doc ?relator <http://www.idref.fr/227816196/id>; dcterms:bibliographicCitation ?title. 
+?doc marcrel:aut ?auteur.
+?auteur skos:prefLabel ?author_name.
+} group by ?doc
+
+___
+
+info about a publication:
+
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX bibo: <http://purl.org/ontology/bibo/>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+
+SELECT DISTINCT
+  ?title
+(sample(?doi) as ?doi)
+  ?sameAs
+  ?uri
+WHERE {
+
+  BIND(<http://www.sudoc.fr/242351441/id> AS ?doc)
+
+  ?doc dcterms:bibliographicCitation ?title.
+
+  OPTIONAL {
+    ?doc bibo:doi ?dois.
+  }
+  OPTIONAL {
+    ?doc owl:sameAs ?sameAs.
+  }
+  OPTIONAL {
+  ?doc bibo:uri ?uri.
+  }
+}
+
+___
+
+institutions linked to a publication:
+
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT
+  ?org
+(sample(?org_names) as $org_name)
+  ?org_relator
+(sample(?org_roles) as $org_role)
+WHERE {
+  BIND(<http://www.sudoc.fr/242351441/id> AS ?doc)
+
+  OPTIONAL {
+    ?doc ?org_relator ?org.
+    ?org a foaf:Organization.
+      ?org skos:prefLabel ?org_names.
+    OPTIONAL {
+      ?org_relator rdfs:label ?org_roles.
+    }
+  }
+}
+___
+
+persons linked to a publication:
+
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+
+SELECT DISTINCT
+  ?person
+  ?person_name
+  ?person_role
+WHERE {
+
+  BIND(<http://www.sudoc.fr/242351441/id> AS ?doc)
+  OPTIONAL {
+    ?doc ?person_relator ?person.
+    ?person a foaf:Person.
+    OPTIONAL {
+      ?person skos:prefLabel ?person_name.
+      ?person_relator skos:prefLabel ?person_role.
+    }
+  }
+}
+

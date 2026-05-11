@@ -1,0 +1,15 @@
+# IdRef — Organization publications
+# Retrieve publications affiliated with an organization.
+#
+# Parameters:
+#   $organization  (URI)  — IdRef organization URI
+
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX marcrel: <http://id.loc.gov/vocabulary/relators/>
+
+SELECT DISTINCT ?title ?doc ?author ?author_name WHERE {
+  ?doc ?relator $organization; dcterms:bibliographicCitation ?title.
+  ?doc marcrel:aut ?author.
+  ?author skos:prefLabel ?author_name.
+} GROUP BY ?doc
