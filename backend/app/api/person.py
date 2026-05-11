@@ -36,7 +36,7 @@ def _parse_person_bindings(person_id: str, bindings: list[dict]) -> Person:
     """Aggregate SPARQL bindings into a Person model."""
     name = None
     note = None
-    orgs: list[str] = []
+    orgs: dict[str, str] = {}  # id -> name
 
     for b in bindings:
         if name is None:
@@ -44,9 +44,10 @@ def _parse_person_bindings(person_id: str, bindings: list[dict]) -> Person:
         if note is None and "note" in b:
             note = b["note"]["value"]
         if "org" in b and "orgName" in b:
+            org_id = b["org"]["value"]
             org_name = b["orgName"]["value"]
-            if org_name not in orgs:
-                orgs.append(org_name)
+            if org_id not in orgs:
+                orgs[org_id] = org_name
 
     if name is None:
         raise ValueError("No name found in SPARQL bindings for person")
@@ -55,7 +56,9 @@ def _parse_person_bindings(person_id: str, bindings: list[dict]) -> Person:
         id=person_id,
         name=name,
         note=note,
-        organizations=[OrganizationRef(name=o) for o in orgs],
+        organizations=[
+            OrganizationRef(id=oid, name=oname) for oid, oname in orgs.items()
+        ],
     )
 
 

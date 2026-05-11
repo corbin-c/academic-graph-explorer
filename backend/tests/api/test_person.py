@@ -31,6 +31,7 @@ class TestGetPerson:
         assert data["name"] == "Dacos, Marin (1971-....)"
         assert data["note"] == "Ingénieur de recherche au CNRS."
         assert len(data["organizations"]) == 1
+        assert data["organizations"][0]["id"] == "http://www.idref.fr/227816196/id"
         assert (
             data["organizations"][0]["name"]
             == "École des hautes études en sciences sociales"
@@ -99,7 +100,9 @@ class TestGetPerson:
         assert response.status_code == 200
         data = response.json()
         assert len(data["organizations"]) == 2
+        assert data["organizations"][0]["id"] == "http://www.idref.fr/001/id"
         assert data["organizations"][0]["name"] == "CNRS"
+        assert data["organizations"][1]["id"] == "http://www.idref.fr/002/id"
         assert data["organizations"][1]["name"] == "EHESS"
 
 

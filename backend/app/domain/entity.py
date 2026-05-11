@@ -32,6 +32,7 @@ class Entity(BaseModel):
 class OrganizationRef(BaseModel):
     """A lightweight organization reference used in person details."""
 
+    id: str
     name: str
 
 
