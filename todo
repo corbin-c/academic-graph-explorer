@@ -1,0 +1,31 @@
+Sources — Wired vs. Unwired
+| Source       | Client                                                              | SPARQL Templates                         | Wired? |
+| ------------ | ------------------------------------------------------------------- | ---------------------------------------- | ------ |
+| IdRef        | sparql.py, search.py, resources.py                                  | 8 .sparql (all used)                     | Mostly |
+| HAL          | sparql.py → HalSparqlClient                                         | publications.sparql, contributors.sparql | ❌     |
+| Persée       | sparql.py → PerseeSparqlClient                                      | publications.sparql, contributors.sparql | ❌     |
+| SUDOC        | sparql.py → SudocClient.fetch_rdf()                                 | (no queries — RDF/XML fetch)             | ❌     |
+| IdRef REST   | resources.py → get_references(), get_biblio()                       | —                                        | ❌     |
+| IdRef thesis | thesis.sparql (person → lab+directors, lab → PhDs, director → PhDs) | —                                        | ❌     |
+Cache Layer — Exists but Unused
+database.py creates the engine, session, and tables — but models.py only defines Base = DeclarativeBase() with zero tables. Nothing is ever cached; every request hits external SPARQL endpoints live.
+Key Gaps (ordered by impact)
+| #   | Gap                                                                                                                                                         | Severity |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 1   | Graph traversal is a stub — it's the app's namesake feature. Should build a Neighborhood from SPARQL results by traversing relationships across depth hops. | Critical |
+| 2 | **OrganizationRef missing
+Thinking: I got cut off. Let me continue with a concise version.
+id** — person's organizations are stored as OrganizationRef(name=...) with no URI, making it impossible to navigate from a person to their org endpoint. | High |
+| 3   | person_contributions.sparql variable bug — requessts line 13 uses ?auth_name but the API expects author_name. The SPARQL template should be verified. | High |
+| 4   | HAL + Persée cross-referencing unused — the owl:sameAs identifiers from publication info could trigger HAL and Persée lookups to enrich results with data from other databases. | Medium |
+| 5   | Cache layer empty — no tables, nothing cached. Define CachedQuery table and wrap SPARQL calls with TTL-based caching to avoid hitting external endpoints on every request. | Medium |
+| 6   | SUDOC RDF source unused — SudocClient.fetch_rdf() could provide richer publication metadata (abstracts, subjects, language) for /publication/{id}. | Medium |
+| 7   | Thesis relations unused — thesis.sparql has 3 queries (person→directors, lab→students, director→students, RelationshipType.DIRECTED_BY) with no endpoint. | Medium |
+| 8   | No error handling for SPARQL failures — no timeout, no retry, no graceful degradation if IdRef is down. | Medium |
+| 9   | No pagination on list endpoints (org members, org publications, person contributions). | Low |
+| 10  | Duplicate IdRefSparqlClient() instantiation — person.py creates a new client per request, publication.py reuses a module-level one. Inconsistent. | Low |
+| 11  | Frontend untouched — no UI. | Low (backend focus) |
+<!-- table not formatted: invalid structure -->
+Dead code
+- domain/graph.py (Neighborhood), domain/relationship.py (Relationship, RelationshipType, Dataset, EntityId) — all unused until graph stub is implemented
+- idref/queries/publications.sparql (old co-authors query) — superseded by person_contributions.sparql

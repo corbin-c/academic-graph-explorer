@@ -1,15 +1,25 @@
-"""Publication detail and sub-resource endpoints."""
+"""Publication detail and sub-resource endpoints (cached)."""
 
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.cache.database import get_session
 from app.domain.entity import Identifier, OrgRole, PersonRole, Publication
+from app.sources.client import SparqlQueryError
 from app.sources.idref.sparql import IdRefSparqlClient
 
 router = APIRouter(prefix="/publication", tags=["publication"])
-_client = IdRefSparqlClient()
+
 _query_prefix = Path(__file__).resolve().parent.parent / "sources" / "idref" / "queries"
+
+
+async def get_idref_client(
+    session: AsyncSession = Depends(get_session),
+) -> IdRefSparqlClient:
+    """Provide an IdRef SPARQL client with optional cache session."""
+    return IdRefSparqlClient(cache_session=session)
 
 
 def _normalize_publication_id(raw: str) -> str:
@@ -75,7 +85,10 @@ def _parse_org_role_bindings(bindings: list[dict]) -> list[OrgRole]:
 
 
 @router.get("/{publication_id:path}/persons")
-async def get_publication_persons(publication_id: str):
+async def get_publication_persons(
+    publication_id: str,
+    client: IdRefSparqlClient = Depends(get_idref_client),
+):
     """Get persons linked to a publication."""
     pub_uri = _normalize_publication_id(publication_id)
     query = (
@@ -83,13 +96,21 @@ async def get_publication_persons(publication_id: str):
         .read_text()
         .replace("$publication", f"<{pub_uri}>")
     )
-    result = await _client.query(query)
+
+    try:
+        result = await client.cached_query(query)
+    except SparqlQueryError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
     bindings = result.get("results", {}).get("bindings", [])
     return _parse_person_role_bindings(bindings)
 
 
 @router.get("/{publication_id:path}/organizations")
-async def get_publication_organizations(publication_id: str):
+async def get_publication_organizations(
+    publication_id: str,
+    client: IdRefSparqlClient = Depends(get_idref_client),
+):
     """Get organizations linked to a publication."""
     pub_uri = _normalize_publication_id(publication_id)
     query = (
@@ -97,13 +118,21 @@ async def get_publication_organizations(publication_id: str):
         .read_text()
         .replace("$publication", f"<{pub_uri}>")
     )
-    result = await _client.query(query)
+
+    try:
+        result = await client.cached_query(query)
+    except SparqlQueryError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
     bindings = result.get("results", {}).get("bindings", [])
     return _parse_org_role_bindings(bindings)
 
 
 @router.get("/{publication_id:path}")
-async def get_publication(publication_id: str):
+async def get_publication(
+    publication_id: str,
+    client: IdRefSparqlClient = Depends(get_idref_client),
+):
     """Get detailed information about a publication."""
     pub_uri = _normalize_publication_id(publication_id)
     query = (
@@ -111,9 +140,13 @@ async def get_publication(publication_id: str):
         .read_text()
         .replace("$publication", f"<{pub_uri}>")
     )
-    result = await _client.query(query)
-    bindings = result.get("results", {}).get("bindings", [])
 
+    try:
+        result = await client.cached_query(query)
+    except SparqlQueryError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    bindings = result.get("results", {}).get("bindings", [])
     if not bindings:
         raise HTTPException(
             status_code=404, detail=f"Publication not found: {publication_id}"

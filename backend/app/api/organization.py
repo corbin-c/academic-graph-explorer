@@ -1,10 +1,13 @@
-"""Organization endpoints — fetches from IdRef SPARQL."""
+"""Organization endpoints — fetches from IdRef SPARQL (cached)."""
 
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.cache.database import get_session
 from app.domain.entity import Organization, PersonRef, PublicationRef
+from app.sources.client import SparqlQueryError
 from app.sources.idref.sparql import IdRefSparqlClient
 
 router = APIRouter(prefix="/organization", tags=["organization"])
@@ -14,6 +17,13 @@ _query_prefix = Path(__file__).resolve().parent.parent / "sources" / "idref" / "
 ORG_QUERY = (_query_prefix / "organization.sparql").read_text()
 MEMBERS_QUERY = (_query_prefix / "organization_members.sparql").read_text()
 PUBS_QUERY = (_query_prefix / "organization_publications.sparql").read_text()
+
+
+async def get_idref_client(
+    session: AsyncSession = Depends(get_session),
+) -> IdRefSparqlClient:
+    """Provide an IdRef SPARQL client with optional cache session."""
+    return IdRefSparqlClient(cache_session=session)
 
 
 def _normalize_org_id(org_id: str) -> str:
@@ -44,32 +54,40 @@ def _parse_org_bindings(org_id: str, bindings: list[dict]) -> Organization:
 
 
 @router.get("/{organization_id:path}/members")
-async def get_organization_members(organization_id: str):
+async def get_organization_members(
+    organization_id: str,
+    client: IdRefSparqlClient = Depends(get_idref_client),
+):
     """Get members (persons) of an organization from IdRef."""
     org_uri = _normalize_org_id(organization_id)
     query = MEMBERS_QUERY.replace("$organization", f"<{org_uri}>")
 
-    client = IdRefSparqlClient()
-    result = await client.query(query)
+    try:
+        result = await client.cached_query(query)
+    except SparqlQueryError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
     bindings = result.get("results", {}).get("bindings", [])
 
     return [
-        PersonRef(
-            id=b["person"]["value"],
-            name=b["name"]["value"],
-        )
-        for b in bindings
+        PersonRef(id=b["person"]["value"], name=b["name"]["value"]) for b in bindings
     ]
 
 
 @router.get("/{organization_id:path}/publications")
-async def get_organization_publications(organization_id: str):
+async def get_organization_publications(
+    organization_id: str,
+    client: IdRefSparqlClient = Depends(get_idref_client),
+):
     """Get publications affiliated with an organization from IdRef."""
     org_uri = _normalize_org_id(organization_id)
     query = PUBS_QUERY.replace("$organization", f"<{org_uri}>")
 
-    client = IdRefSparqlClient()
-    result = await client.query(query)
+    try:
+        result = await client.cached_query(query)
+    except SparqlQueryError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
     bindings = result.get("results", {}).get("bindings", [])
 
     return [
@@ -88,7 +106,10 @@ async def get_organization_publications(organization_id: str):
 
 
 @router.get("/{organization_id:path}")
-async def get_organization(organization_id: str):
+async def get_organization(
+    organization_id: str,
+    client: IdRefSparqlClient = Depends(get_idref_client),
+):
     """Get detailed information about an organization from IdRef.
 
     Accepts raw PPN (e.g. "227816196") or full IdRef URI
@@ -97,8 +118,10 @@ async def get_organization(organization_id: str):
     org_uri = _normalize_org_id(organization_id)
     query = ORG_QUERY.replace("$organization", f"<{org_uri}>")
 
-    client = IdRefSparqlClient()
-    result = await client.query(query)
+    try:
+        result = await client.cached_query(query)
+    except SparqlQueryError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
 
     bindings = result.get("results", {}).get("bindings", [])
     if not bindings:

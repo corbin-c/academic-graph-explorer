@@ -1,18 +1,28 @@
-"""Person detail endpoint — fetches from IdRef SPARQL."""
+"""Person detail endpoint — fetches from IdRef SPARQL (cached)."""
 
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.cache.database import get_session
 from app.domain.entity import Contribution, OrganizationRef, Person
+from app.sources.client import SparqlQueryError
 from app.sources.idref.sparql import IdRefSparqlClient
 
 router = APIRouter(prefix="/person", tags=["person"])
 
-# Load SPARQL query templates
+# Load SPARQL query templates (read once at module load)
 _query_prefix = Path(__file__).resolve().parent.parent / "sources" / "idref" / "queries"
 PERSON_QUERY = (_query_prefix / "person.sparql").read_text()
 CONTRIBUTIONS_QUERY = (_query_prefix / "person_contributions.sparql").read_text()
+
+
+async def get_idref_client(
+    session: AsyncSession = Depends(get_session),
+) -> IdRefSparqlClient:
+    """Provide an IdRef SPARQL client with optional cache session."""
+    return IdRefSparqlClient(cache_session=session)
 
 
 def _normalize_person_id(person_id: str) -> str:
@@ -53,13 +63,19 @@ def _parse_person_bindings(person_id: str, bindings: list[dict]) -> Person:
 
 
 @router.get("/{person_id:path}/contributions")
-async def get_person_contributions(person_id: str):
+async def get_person_contributions(
+    person_id: str,
+    client: IdRefSparqlClient = Depends(get_idref_client),
+):
     """Get co-authored publications for a person from IdRef."""
     person_uri = _normalize_person_id(person_id)
     query = CONTRIBUTIONS_QUERY.replace("$person", f"<{person_uri}>")
 
-    client = IdRefSparqlClient()
-    result = await client.query(query)
+    try:
+        result = await client.cached_query(query)
+    except SparqlQueryError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
     bindings = result.get("results", {}).get("bindings", [])
 
     return [
@@ -79,7 +95,10 @@ async def get_person_contributions(person_id: str):
 
 
 @router.get("/{person_id:path}")
-async def get_person(person_id: str):
+async def get_person(
+    person_id: str,
+    client: IdRefSparqlClient = Depends(get_idref_client),
+):
     """Get detailed information about a person from IdRef.
 
     Accepts raw PPN (e.g. "121375307") or full IdRef URI
@@ -88,8 +107,10 @@ async def get_person(person_id: str):
     person_uri = _normalize_person_id(person_id)
     query = PERSON_QUERY.replace("$person", f"<{person_uri}>")
 
-    client = IdRefSparqlClient()
-    result = await client.query(query)
+    try:
+        result = await client.cached_query(query)
+    except SparqlQueryError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
 
     bindings = result.get("results", {}).get("bindings", [])
     if not bindings:
