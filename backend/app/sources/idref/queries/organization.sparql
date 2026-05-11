@@ -1,0 +1,13 @@
+# IdRef — Organization detail
+# Retrieve information about an organization by IdRef URI.
+#
+# Parameters:
+#   $organization  (URI)  — IdRef organization URI, e.g. <http://www.idref.fr/227816196/id>
+
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT DISTINCT ?note (SAMPLE(?label) AS ?name) WHERE {
+  $organization
+    skos:prefLabel ?label ;
+    skos:note ?note .
+}

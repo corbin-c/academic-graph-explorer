@@ -1,8 +1,5 @@
 """
-Core entity model for academic graph nodes.
-
-Every node in the graph is an Entity with a type, label, and optional
-external identifiers.
+Core domain models for academic graph nodes.
 """
 
 from enum import StrEnum
@@ -13,9 +10,7 @@ from pydantic import BaseModel
 class EntityType(StrEnum):
     PERSON = "person"
     PUBLICATION = "publication"
-    PROJECT = "project"
-    INSTITUTION = "institution"
-    DATASET = "dataset"
+    ORGANIZATION = "organization"
 
 
 class Identifier(BaseModel):
@@ -32,3 +27,26 @@ class Entity(BaseModel):
     label: str
     type: EntityType
     identifiers: list[Identifier] = []
+
+
+class OrganizationRef(BaseModel):
+    """A lightweight organization reference used in person details."""
+
+    name: str
+
+
+class Person(BaseModel):
+    """Detailed information about a person from IdRef."""
+
+    id: str
+    name: str
+    note: str | None = None
+    organizations: list[OrganizationRef] = []
+
+
+class Organization(BaseModel):
+    """Detailed information about an organization from IdRef."""
+
+    id: str
+    name: str
+    note: str | None = None

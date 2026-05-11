@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import entities, graph, health, search
+from app.api import graph, health, organization, person, publication, search
 from app.cache.database import create_db_and_tables
 
 
@@ -33,7 +33,9 @@ app.add_middleware(
 # API routes
 app.include_router(health.router, prefix="/api")
 app.include_router(graph.router, prefix="/api")
-app.include_router(entities.router, prefix="/api")
+app.include_router(person.router, prefix="/api")
+app.include_router(publication.router, prefix="/api")
+app.include_router(organization.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 
 # Serve the compiled frontend SPA

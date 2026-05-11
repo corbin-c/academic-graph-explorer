@@ -1,0 +1,45 @@
+___
+
+co contributeurs:
+
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX marcrel: <http://id.loc.gov/vocabulary/relators/>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX org: <http://www.w3.org/ns/org#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX bibo: <http://purl.org/ontology/bibo/>
+
+SELECT DISTINCT ?titre ?role ?doc ?auteur ?auth_name WHERE {
+?doc ?relator <http://www.idref.fr/121375307/id>; dcterms:bibliographicCitation ?titre. 
+?relator skos:prefLabel ?role.
+?doc marcrel:aut ?auteur.
+?auteur skos:prefLabel ?auth_name.
+} group by ?doc
+____
+
+Informations d'une personne:
+
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX marcrel: <http://id.loc.gov/vocabulary/relators/>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX org: <http://www.w3.org/ns/org#>
+
+SELECT DISTINCT ?name ?note ?org ?orgName WHERE {
+  <http://www.idref.fr/121375307/id>
+    skos:prefLabel ?name ;
+    skos:note ?note .
+
+  OPTIONAL {
+    <http://www.idref.fr/121375307/id> org:memberOf ?org .
+
+    {
+      SELECT ?org (SAMPLE(?label) AS ?orgName)
+      WHERE {
+        ?org skos:prefLabel ?label .
+      }
+      GROUP BY ?org
+    }
+  }
+}

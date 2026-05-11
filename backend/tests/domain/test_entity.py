@@ -21,9 +21,7 @@ class TestEntityType:
         assert EntityType.PUBLICATION == "publication"
 
     def test_from_string(self):
-        assert EntityType("project") == EntityType.PROJECT
-        assert EntityType("institution") == EntityType.INSTITUTION
-        assert EntityType("dataset") == EntityType.DATASET
+        assert EntityType("organization") == EntityType.ORGANIZATION
 
 
 class TestEntity:
@@ -48,20 +46,20 @@ class TestEntity:
         data = {
             "id": "789",
             "label": "Test Lab",
-            "type": "institution",
+            "type": "organization",
             "identifiers": [{"scheme": "ror", "value": "https://ror.org/01an7q238"}],
         }
         entity = Entity.model_validate(data)
         assert entity.id == "789"
-        assert entity.type == EntityType.INSTITUTION
+        assert entity.type == EntityType.ORGANIZATION
         assert entity.identifiers[0].scheme == "ror"
 
     def test_entity_serializes_to_json(self):
-        entity = Entity(id="abc", label="Test", type=EntityType.DATASET)
+        entity = Entity(id="abc", label="Test", type=EntityType.ORGANIZATION)
         json_data = entity.model_dump()
         assert json_data == {
             "id": "abc",
             "label": "Test",
-            "type": "dataset",
+            "type": "organization",
             "identifiers": [],
         }
