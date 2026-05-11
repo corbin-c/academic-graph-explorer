@@ -1,7 +1,6 @@
 """Graph traversal engine — BFS over the IdRef knowledge graph."""
 
 from collections import deque
-from pathlib import Path
 
 from app.domain.entity import Entity, EntityType, Identifier
 from app.domain.graph import Neighborhood
@@ -11,58 +10,45 @@ from app.domain.relationship import (
     Relationship,
     RelationshipType,
 )
+from app.normalize import normalize_idref_id
 from app.sources.client import SparqlQueryError
+from app.sources.idref.queries import (
+    ORGANIZATION,
+    ORGANIZATION_MEMBERS,
+    ORGANIZATION_PUBLICATIONS,
+    PERSON,
+    PERSON_CONTRIBUTIONS,
+    PUBLICATION,
+    PUBLICATION_ORGANIZATIONS,
+    PUBLICATION_PERSONS,
+)
 from app.sources.idref.sparql import IDREF_ENDPOINT, IdRefSparqlClient
 
-# ── SPARQL templates (loaded once at module import) ────────────────────
-
-_QUERIES = Path(__file__).resolve().parent.parent / "sources" / "idref" / "queries"
+# ── SPARQL templates ──────────────────────────────────────────
 
 _ENTITY_QUERIES = {
-    EntityType.PERSON: (_QUERIES / "person.sparql").read_text(),
-    EntityType.ORGANIZATION: (_QUERIES / "organization.sparql").read_text(),
-    EntityType.PUBLICATION: (_QUERIES / "publication.sparql").read_text(),
+    EntityType.PERSON: PERSON,
+    EntityType.ORGANIZATION: ORGANIZATION,
+    EntityType.PUBLICATION: PUBLICATION,
 }
 
-# For PERSON, the entity query (person.sparql) already returns org relationships
+# For PERSON, the entity query already returns org relationships
 # inline via ?org — so we don't need a separate query for person→org edges.
-# This dict maps which entity types have inline relationships in their entity query.
 _INLINE_RELATIONS: dict[EntityType, tuple[EntityType, str]] = {
     EntityType.PERSON: (EntityType.ORGANIZATION, "org"),
 }
 
-# Additional relationship queries needed beyond what the entity query provides.
 _ADDITIONAL_RELATIONS: dict[EntityType, list[tuple[EntityType, str, str]]] = {
     EntityType.PERSON: [
-        (
-            EntityType.PUBLICATION,
-            (_QUERIES / "person_contributions.sparql").read_text(),
-            "doc",
-        ),
+        (EntityType.PUBLICATION, PERSON_CONTRIBUTIONS, "doc"),
     ],
     EntityType.ORGANIZATION: [
-        (
-            EntityType.PERSON,
-            (_QUERIES / "organization_members.sparql").read_text(),
-            "person",
-        ),
-        (
-            EntityType.PUBLICATION,
-            (_QUERIES / "organization_publications.sparql").read_text(),
-            "doc",
-        ),
+        (EntityType.PERSON, ORGANIZATION_MEMBERS, "person"),
+        (EntityType.PUBLICATION, ORGANIZATION_PUBLICATIONS, "doc"),
     ],
     EntityType.PUBLICATION: [
-        (
-            EntityType.PERSON,
-            (_QUERIES / "publication_persons.sparql").read_text(),
-            "person",
-        ),
-        (
-            EntityType.ORGANIZATION,
-            (_QUERIES / "publication_organizations.sparql").read_text(),
-            "org",
-        ),
+        (EntityType.PERSON, PUBLICATION_PERSONS, "person"),
+        (EntityType.ORGANIZATION, PUBLICATION_ORGANIZATIONS, "org"),
     ],
 }
 
@@ -73,19 +59,6 @@ _PARAM_NAMES: dict[EntityType, str] = {
 }
 
 IDREF_DATASET = Dataset(name="IdRef", endpoint=IDREF_ENDPOINT)
-
-
-# ── ID normalization ──────────────────────────────────────────────────
-
-
-def _normalize_id(raw_id: str) -> str:
-    """Accept raw PPN or full URI, return full IdRef URI."""
-    if raw_id.startswith("http://") or raw_id.startswith("https://"):
-        return raw_id
-    return f"http://www.idref.fr/{raw_id}/id"
-
-
-# ── Entity binding parser ─────────────────────────────────────────────
 
 
 def _parse_entity_bindings(
@@ -125,21 +98,13 @@ def _parse_entity_bindings(
     raise ValueError(f"Unknown entity type: {entity_type}")
 
 
-# ── Edge normalization ────────────────────────────────────────────────
-
-
 def _normalize_edge(
     source_id: str,
     source_type: EntityType,
     target_id: str,
     target_type: EntityType,
 ) -> Relationship:
-    """Create a Relationship with consistent semantic direction.
-
-    Edge direction is always: Person → Org, Person → Pub, Org → Pub.
-    This ensures the same edge is deduplicated regardless of which node
-    discovers it first.
-    """
+    """Create a Relationship with consistent semantic direction."""
     if source_type == EntityType.PERSON and target_type == EntityType.ORGANIZATION:
         return Relationship(
             source=EntityId(source_id),
@@ -185,9 +150,6 @@ def _normalize_edge(
     raise ValueError(f"Unknown edge: {source_type} → {target_type}")
 
 
-# ── Neighbor extraction ───────────────────────────────────────────────
-
-
 def _extract_neighbor_ids(bindings: list[dict], binding_key: str) -> set[str]:
     """Extract unique neighbor URIs from relationship query bindings."""
     ids: set[str] = set()
@@ -197,16 +159,8 @@ def _extract_neighbor_ids(bindings: list[dict], binding_key: str) -> set[str]:
     return ids
 
 
-# ── BFS Engine ────────────────────────────────────────────────────────
-
-
 class GraphTraverser:
-    """Breadth-first graph traversal over the IdRef knowledge graph.
-
-    Starting from a root entity, explores relationships up to a given
-    depth, collecting nodes and edges. Deduplicates visited entities
-    and normalizes edge direction.
-    """
+    """Breadth-first graph traversal over the IdRef knowledge graph."""
 
     def __init__(self, client: IdRefSparqlClient):
         self._client = client
@@ -219,7 +173,7 @@ class GraphTraverser:
         max_nodes: int,
     ) -> Neighborhood:
         """BFS traversal returning a Neighborhood of nodes and edges."""
-        root_uri = _normalize_id(root_id)
+        root_uri = normalize_idref_id(root_id)
 
         visited: set[str] = {root_uri}
         nodes: dict[str, Entity] = {}
@@ -229,11 +183,8 @@ class GraphTraverser:
         while frontier:
             current_id, current_type, current_depth = frontier.popleft()
 
-            # Skip if already fetched (discovered via another path)
             if current_id in nodes:
                 continue
-
-            # ── Fetch entity info ──────────────────────────────────
 
             query = _ENTITY_QUERIES[current_type].replace(
                 _PARAM_NAMES[current_type], f"<{current_id}>"
@@ -243,14 +194,12 @@ class GraphTraverser:
                 bindings = result.get("results", {}).get("bindings", [])
                 entity = _parse_entity_bindings(current_type, current_id, bindings)
             except (SparqlQueryError, KeyError, ValueError):
-                continue  # Skip entities that fail to resolve
+                continue
 
             nodes[current_id] = entity
 
             if len(nodes) >= max_nodes:
                 break
-
-            # ── Inline relationships (from the entity query) ───────
 
             if current_type in _INLINE_RELATIONS:
                 neighbor_type, binding_key = _INLINE_RELATIONS[current_type]
@@ -266,8 +215,6 @@ class GraphTraverser:
                             frontier.append(
                                 (neighbor_id, neighbor_type, current_depth + 1)
                             )
-
-            # ── Additional relationship queries ────────────────────
 
             if current_depth < max_depth and current_type in _ADDITIONAL_RELATIONS:
                 for neighbor_type, rel_query, binding_key in _ADDITIONAL_RELATIONS[
@@ -294,8 +241,6 @@ class GraphTraverser:
                                 frontier.append(
                                     (neighbor_id, neighbor_type, current_depth + 1)
                                 )
-
-        # ── Validate root was resolved ─────────────────────────────
 
         if root_uri not in nodes:
             raise ValueError(f"Could not resolve root entity: {root_uri}")

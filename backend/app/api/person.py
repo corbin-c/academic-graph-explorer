@@ -1,35 +1,15 @@
 """Person detail endpoint — fetches from IdRef SPARQL (cached)."""
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.cache.database import get_session
+from app.api.dependencies import get_idref_client
 from app.domain.entity import Contribution, OrganizationRef, Person
+from app.normalize import normalize_idref_id
 from app.sources.client import SparqlQueryError
+from app.sources.idref.queries import PERSON, PERSON_CONTRIBUTIONS
 from app.sources.idref.sparql import IdRefSparqlClient
 
 router = APIRouter(prefix="/person", tags=["person"])
-
-# Load SPARQL query templates (read once at module load)
-_query_prefix = Path(__file__).resolve().parent.parent / "sources" / "idref" / "queries"
-PERSON_QUERY = (_query_prefix / "person.sparql").read_text()
-CONTRIBUTIONS_QUERY = (_query_prefix / "person_contributions.sparql").read_text()
-
-
-async def get_idref_client(
-    session: AsyncSession = Depends(get_session),
-) -> IdRefSparqlClient:
-    """Provide an IdRef SPARQL client with optional cache session."""
-    return IdRefSparqlClient(cache_session=session)
-
-
-def _normalize_person_id(person_id: str) -> str:
-    """Accept raw PPN or full URI, return IdRef person URI."""
-    if person_id.startswith("http://") or person_id.startswith("https://"):
-        return person_id
-    return f"http://www.idref.fr/{person_id}/id"
 
 
 def _parse_person_bindings(person_id: str, bindings: list[dict]) -> Person:
@@ -62,17 +42,14 @@ def _parse_person_bindings(person_id: str, bindings: list[dict]) -> Person:
     )
 
 
-# ── Sub-resource routes (must be before the catch-all) ──
-
-
 @router.get("/{person_id:path}/contributions")
 async def get_person_contributions(
     person_id: str,
     client: IdRefSparqlClient = Depends(get_idref_client),
 ):
     """Get co-authored publications for a person from IdRef."""
-    person_uri = _normalize_person_id(person_id)
-    query = CONTRIBUTIONS_QUERY.replace("$person", f"<{person_uri}>")
+    person_uri = normalize_idref_id(person_id)
+    query = PERSON_CONTRIBUTIONS.replace("$person", f"<{person_uri}>")
 
     try:
         result = await client.cached_query(query)
@@ -94,9 +71,6 @@ async def get_person_contributions(
     ]
 
 
-# ── Catch-all detail route ──
-
-
 @router.get("/{person_id:path}")
 async def get_person(
     person_id: str,
@@ -107,8 +81,8 @@ async def get_person(
     Accepts raw PPN (e.g. "121375307") or full IdRef URI
     (e.g. "http://www.idref.fr/121375307/id").
     """
-    person_uri = _normalize_person_id(person_id)
-    query = PERSON_QUERY.replace("$person", f"<{person_uri}>")
+    person_uri = normalize_idref_id(person_id)
+    query = PERSON.replace("$person", f"<{person_uri}>")
 
     try:
         result = await client.cached_query(query)

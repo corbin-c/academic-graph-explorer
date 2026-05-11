@@ -3,9 +3,8 @@ Graph traversal endpoint — BFS over the IdRef knowledge graph.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.cache.database import get_session
+from app.api.dependencies import get_idref_client
 from app.domain.entity import EntityType
 from app.domain.graph import Neighborhood
 from app.sources.client import SparqlQueryError
@@ -13,13 +12,6 @@ from app.sources.idref.sparql import IdRefSparqlClient
 from app.services.graph_traversal import GraphTraverser
 
 router = APIRouter(prefix="/graph", tags=["graph"])
-
-
-async def get_idref_client(
-    session: AsyncSession = Depends(get_session),
-) -> IdRefSparqlClient:
-    """Provide an IdRef SPARQL client with optional cache session."""
-    return IdRefSparqlClient(cache_session=session)
 
 
 @router.get("/", response_model=Neighborhood)

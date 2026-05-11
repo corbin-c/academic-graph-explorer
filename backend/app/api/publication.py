@@ -1,33 +1,19 @@
 """Publication detail and sub-resource endpoints (cached)."""
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.cache.database import get_session
+from app.api.dependencies import get_idref_client
 from app.domain.entity import Identifier, OrgRole, PersonRole, Publication
+from app.normalize import normalize_idref_id
 from app.sources.client import SparqlQueryError
+from app.sources.idref.queries import (
+    PUBLICATION,
+    PUBLICATION_ORGANIZATIONS,
+    PUBLICATION_PERSONS,
+)
 from app.sources.idref.sparql import IdRefSparqlClient
 
 router = APIRouter(prefix="/publication", tags=["publication"])
-
-_query_prefix = Path(__file__).resolve().parent.parent / "sources" / "idref" / "queries"
-
-
-async def get_idref_client(
-    session: AsyncSession = Depends(get_session),
-) -> IdRefSparqlClient:
-    """Provide an IdRef SPARQL client with optional cache session."""
-    return IdRefSparqlClient(cache_session=session)
-
-
-def _normalize_publication_id(raw: str) -> str:
-    """Normalize a raw PPN or full URI to a canonical IdRef URI."""
-    raw = raw.strip()
-    if raw.startswith("http"):
-        return raw
-    return f"http://www.idref.fr/{raw}/id"
 
 
 def _parse_publication_bindings(bindings: list[dict], pub_id: str) -> Publication:
@@ -90,12 +76,8 @@ async def get_publication_persons(
     client: IdRefSparqlClient = Depends(get_idref_client),
 ):
     """Get persons linked to a publication."""
-    pub_uri = _normalize_publication_id(publication_id)
-    query = (
-        (_query_prefix / "publication_persons.sparql")
-        .read_text()
-        .replace("$publication", f"<{pub_uri}>")
-    )
+    pub_uri = normalize_idref_id(publication_id)
+    query = PUBLICATION_PERSONS.replace("$publication", f"<{pub_uri}>")
 
     try:
         result = await client.cached_query(query)
@@ -112,12 +94,8 @@ async def get_publication_organizations(
     client: IdRefSparqlClient = Depends(get_idref_client),
 ):
     """Get organizations linked to a publication."""
-    pub_uri = _normalize_publication_id(publication_id)
-    query = (
-        (_query_prefix / "publication_organizations.sparql")
-        .read_text()
-        .replace("$publication", f"<{pub_uri}>")
-    )
+    pub_uri = normalize_idref_id(publication_id)
+    query = PUBLICATION_ORGANIZATIONS.replace("$publication", f"<{pub_uri}>")
 
     try:
         result = await client.cached_query(query)
@@ -134,12 +112,8 @@ async def get_publication(
     client: IdRefSparqlClient = Depends(get_idref_client),
 ):
     """Get detailed information about a publication."""
-    pub_uri = _normalize_publication_id(publication_id)
-    query = (
-        (_query_prefix / "publication.sparql")
-        .read_text()
-        .replace("$publication", f"<{pub_uri}>")
-    )
+    pub_uri = normalize_idref_id(publication_id)
+    query = PUBLICATION.replace("$publication", f"<{pub_uri}>")
 
     try:
         result = await client.cached_query(query)
