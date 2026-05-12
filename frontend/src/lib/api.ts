@@ -44,14 +44,15 @@ export async function searchApi(q: string): Promise<SearchResult[]> {
 /** Get detailed information for an entity by ID and type. */
 export async function fetchEntityDetail(
   id: string,
-  type: string,
+  type: string
 ): Promise<EntityDetail> {
   if (type === "person") {
     const person_id = normalizeIdRefId(id)
     const { data, error } = await client.GET("/api/person/{person_id}", {
       params: { path: { person_id } },
     })
-    if (error) throw new Error("Failed to fetch person details", { cause: error })
+    if (error)
+      throw new Error("Failed to fetch person details", { cause: error })
     return data!
   }
 
@@ -61,7 +62,7 @@ export async function fetchEntityDetail(
       "/api/organization/{organization_id}",
       {
         params: { path: { organization_id } },
-      },
+      }
     )
     if (error)
       throw new Error("Failed to fetch organization details", { cause: error })
@@ -74,7 +75,7 @@ export async function fetchEntityDetail(
       "/api/publication/{publication_id}",
       {
         params: { path: { publication_id } },
-      },
+      }
     )
     if (error)
       throw new Error("Failed to fetch publication details", { cause: error })
@@ -88,8 +89,8 @@ export async function fetchEntityDetail(
 export async function fetchGraphTraversal(
   root: string,
   type: string,
-  depth: number = 2,
-  limit: number = 100,
+  depth: number = 1,
+  limit: number = 100
 ): Promise<Neighborhood> {
   const { data, error } = await client.GET("/api/graph/", {
     params: { query: { root, type, depth, limit } },

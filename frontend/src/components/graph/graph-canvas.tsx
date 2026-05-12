@@ -22,7 +22,7 @@ interface D3Link extends d3.SimulationLinkDatum<D3Node> {
 
 const TYPE_COLORS: Record<string, string> = {
   person: "var(--color-primary, #3b82f6)",
-  organization: "var(--color-chart-4, #f59e0b)",
+  organization: "var(--color-chart-5, #8b5cf6)",
   publication: "var(--color-chart-2, #10b981)",
 }
 
@@ -140,14 +140,16 @@ export function GraphCanvas({ neighborhood, selectedNodeId, onSelectNode }: Grap
       .attr("r", (d) => (d.isCenter ? 16 : TYPE_RADIUS[d.type] ?? 7))
       .attr("fill", (d) => TYPE_COLORS[d.type] ?? "var(--color-muted-foreground)")
       .attr("stroke", (d) => {
+        if (d.id === selectedNodeIdRef.current) return "var(--color-chart-4, #f59e0b)"
         if (d.isCenter) return "var(--color-primary, #3b82f6)"
-        if (d.id === selectedNodeIdRef.current) return "var(--color-primary, #3b82f6)"
         return "transparent"
       })
       .attr("stroke-width", (d) => (d.isCenter || d.id === selectedNodeIdRef.current ? 3 : 0))
-      .style("filter", (d) =>
-        d.isCenter ? "drop-shadow(0 0 6px var(--color-primary, #3b82f6))" : "none"
-      )
+      .style("filter", (d) => {
+        if (d.id === selectedNodeIdRef.current) return "drop-shadow(0 0 8px var(--color-chart-4, #f59e0b))"
+        if (d.isCenter) return "drop-shadow(0 0 6px var(--color-primary, #3b82f6))"
+        return "none"
+      })
 
     // Hover titles
     nodeG.append("title").text((d) => d.label)
@@ -211,8 +213,9 @@ export function GraphCanvas({ neighborhood, selectedNodeId, onSelectNode }: Grap
     svg.selectAll<SVGCircleElement, D3Node>("g circle").each(function (d) {
       const circle = d3.select(this)
       const isSelected = d.id === selectedNodeId
-      circle.attr("stroke", isSelected ? "var(--color-primary, #3b82f6)" : d.isCenter ? "var(--color-primary, #3b82f6)" : "transparent")
+      circle.attr("stroke", isSelected ? "var(--color-chart-4, #f59e0b)" : d.isCenter ? "var(--color-primary, #3b82f6)" : "transparent")
       circle.attr("stroke-width", isSelected || d.isCenter ? 3 : 0)
+      circle.style("filter", isSelected ? "drop-shadow(0 0 8px var(--color-chart-4, #f59e0b))" : d.isCenter ? "drop-shadow(0 0 6px var(--color-primary, #3b82f6))" : "none")
     })
   }, [selectedNodeId, neighborhood])
 

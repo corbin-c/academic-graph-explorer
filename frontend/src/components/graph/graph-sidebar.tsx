@@ -16,6 +16,7 @@ interface GraphSidebarProps {
   onSelectNode: (nodeId: string | null) => void
   onClose: () => void
   expandedNodeIds: Set<string>
+  expandingNodeId: string | null
   onExpand: (nodeId: string, type: string) => void
 }
 
@@ -50,6 +51,7 @@ export function GraphSidebar({
   onSelectNode,
   onClose,
   expandedNodeIds,
+  expandingNodeId,
   onExpand,
 }: GraphSidebarProps) {
   const [detailRequested, setDetailRequested] = useState(false)
@@ -141,11 +143,18 @@ export function GraphSidebar({
           <Separator />
           <Button
             variant="outline"
-            disabled={expandedNodeIds.has(selectedNode.id)}
+            disabled={
+              expandedNodeIds.has(selectedNode.id) ||
+              expandingNodeId === selectedNode.id
+            }
             className="w-full"
             onClick={() => onExpand(selectedNode.id, selectedNode.type)}
           >
-            <GitBranch className="mr-2 h-4 w-4" />
+            {expandingNodeId === selectedNode.id ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <GitBranch className="mr-2 h-4 w-4" />
+            )}
             Expand Graph
             <ChevronRight className="ml-auto h-4 w-4" />
           </Button>

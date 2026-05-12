@@ -20,6 +20,7 @@ export function GraphPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set())
+  const [expandingNodeId, setExpandingNodeId] = useState<string | null>(null)
 
   // Initial graph load
   useEffect(() => {
@@ -34,6 +35,7 @@ export function GraphPage() {
 
   // Expand: fetch neighborhood around selected node, merge into current
   async function handleExpand(nodeId: string, type: string) {
+    setExpandingNodeId(nodeId)
     try {
       const newNh = await fetchGraphTraversal(nodeId, type, 1, 50)
       setNeighborhood((prev) => {
@@ -57,6 +59,8 @@ export function GraphPage() {
       setExpandedNodeIds((prev) => new Set(prev).add(nodeId))
     } catch {
       // Expansion errors are non-critical — silently ignore
+    } finally {
+      setExpandingNodeId(null)
     }
   }
 
@@ -132,6 +136,7 @@ export function GraphPage() {
             onSelectNode={handleSelectNode}
             onClose={() => setSelectedNodeId(null)}
             expandedNodeIds={expandedNodeIds}
+            expandingNodeId={expandingNodeId}
             onExpand={handleExpand}
           />
         )}
