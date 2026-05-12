@@ -35,6 +35,10 @@ const TYPE_RADIUS: Record<string, number> = {
   publication: 6,
 }
 
+function degreeScale(deg: number): number {
+  return deg <= 1 ? 1 : 1 + Math.log2(deg) * 0.5
+}
+
 export function GraphCanvas({
   neighborhood,
   selectedNodeId,
@@ -126,7 +130,7 @@ export function GraphCanvas({
       .force("collision", d3.forceCollide<D3Node>().radius((d) => {
         const base = d.isCenter ? 16 : (TYPE_RADIUS[d.type] ?? 7)
         const deg = degreeMap.get(d.id) ?? 0
-        const scale = deg <= 1 ? 1 : Math.min(1 + (deg - 1) * 0.15, 3)
+        const scale = degreeScale(deg)
         return base * scale + 20
       }))
 
@@ -194,7 +198,7 @@ export function GraphCanvas({
       .attr("r", (d) => {
         const base = d.isCenter ? 16 : (TYPE_RADIUS[d.type] ?? 7)
         const deg = degreeMap.get(d.id) ?? 0
-        const scale = deg <= 1 ? 1 : Math.min(1 + (deg - 1) * 0.15, 3)
+        const scale = degreeScale(deg)
         return base * scale
       })
       .attr(

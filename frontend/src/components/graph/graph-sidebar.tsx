@@ -83,7 +83,7 @@ export function GraphSidebar({
         </Button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-4 p-4">
           {/* Type badge */}
           <div>
