@@ -17,6 +17,19 @@ export type GraphEntity = Person | Organization | Publication
 export type GraphEdge = components["schemas"]["Relationship"]
 export type Neighborhood = components["schemas"]["Neighborhood"]
 
+// ── Helpers ────────────────────────────────────────────────────────────
+
+/** Extract the PPN from a full IdRef URI.
+ *  "http://www.idref.fr/03113887X/id" → "03113887X"
+ *  "03113887X" → "03113887X"
+ */
+function normalizeIdRefId(id: string): string {
+  if (/^\d+[A-Za-z]?$/.test(id)) return id
+  const match = id.match(/idref\.fr\/([^/]+)/)
+  if (match) return match[1]
+  return id
+}
+
 // ── API functions ─────────────────────────────────────────────────────
 
 /** Search for persons and organizations in IdRef. */
@@ -34,18 +47,20 @@ export async function fetchEntityDetail(
   type: string,
 ): Promise<EntityDetail> {
   if (type === "person") {
+    const person_id = normalizeIdRefId(id)
     const { data, error } = await client.GET("/api/person/{person_id}", {
-      params: { path: { person_id: id } },
+      params: { path: { person_id } },
     })
     if (error) throw new Error("Failed to fetch person details", { cause: error })
     return data!
   }
 
   if (type === "organization") {
+    const organization_id = normalizeIdRefId(id)
     const { data, error } = await client.GET(
       "/api/organization/{organization_id}",
       {
-        params: { path: { organization_id: id } },
+        params: { path: { organization_id } },
       },
     )
     if (error)
@@ -54,10 +69,11 @@ export async function fetchEntityDetail(
   }
 
   if (type === "publication") {
+    const publication_id = normalizeIdRefId(id)
     const { data, error } = await client.GET(
       "/api/publication/{publication_id}",
       {
-        params: { path: { publication_id: id } },
+        params: { path: { publication_id } },
       },
     )
     if (error)
