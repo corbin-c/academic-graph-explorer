@@ -12,8 +12,10 @@ PREFIX org: <http://www.w3.org/ns/org#>
 
 SELECT DISTINCT ?name ?note ?org ?orgName WHERE {
   $person
-    skos:prefLabel ?name ;
-    skos:note ?note .
+    skos:prefLabel ?name .
+  OPTIONAL {
+    $person skos:note ?note .
+  }
 
   OPTIONAL {
     $person org:memberOf ?org .
