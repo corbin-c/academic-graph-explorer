@@ -3,7 +3,8 @@ import { useParams, useSearchParams, Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { ArrowLeft } from "lucide-react"
 import { fetchGraphTraversal, type Neighborhood, type GraphEntity } from "@/lib/api"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { GraphCanvas } from "@/components/graph/graph-canvas"
 import { GraphSidebar } from "@/components/graph/graph-sidebar"
@@ -40,12 +41,13 @@ export function GraphPage() {
     <div className="flex h-svh flex-col">
       {/* Top bar */}
       <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2">
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Back
-          </Link>
-        </Button>
+        <Link
+          to="/"
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+        >
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Back
+        </Link>
         <span className="truncate text-sm text-muted-foreground">
           Graph · {neighborhood?.center.label ?? "..."}
         </span>
@@ -71,9 +73,12 @@ export function GraphPage() {
               <div className="space-y-2 text-center">
                 <p className="text-destructive">Failed to load graph.</p>
                 <p className="text-sm text-muted-foreground">{error.message}</p>
-                <Button variant="outline" size="sm" asChild className="mt-2">
-                  <Link to="/">Back to search</Link>
-                </Button>
+                <Link
+                  to="/"
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-2")}
+                >
+                  Back to search
+                </Link>
               </div>
             </div>
           )}
