@@ -15,6 +15,8 @@ interface GraphSidebarProps {
   selectedNode: GraphEntity | undefined
   onSelectNode: (nodeId: string | null) => void
   onClose: () => void
+  expandedNodeIds: Set<string>
+  onExpand: (nodeId: string, type: string) => void
 }
 
 function DetailContent({ detail }: { detail: EntityDetail }) {
@@ -47,6 +49,8 @@ export function GraphSidebar({
   selectedNode,
   onSelectNode,
   onClose,
+  expandedNodeIds,
+  onExpand,
 }: GraphSidebarProps) {
   const [detailRequested, setDetailRequested] = useState(false)
 
@@ -133,9 +137,14 @@ export function GraphSidebar({
             </>
           )}
 
-          {/* Expand Graph (future) */}
+          {/* Expand Graph */}
           <Separator />
-          <Button variant="outline" disabled className="w-full">
+          <Button
+            variant="outline"
+            disabled={expandedNodeIds.has(selectedNode.id)}
+            className="w-full"
+            onClick={() => onExpand(selectedNode.id, selectedNode.type)}
+          >
             <GitBranch className="mr-2 h-4 w-4" />
             Expand Graph
             <ChevronRight className="ml-auto h-4 w-4" />

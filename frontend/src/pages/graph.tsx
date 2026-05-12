@@ -1,6 +1,5 @@
-import { useState, useMemo } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useParams, useSearchParams, Link } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
 import { ArrowLeft } from "lucide-react"
 import { fetchGraphTraversal, type Neighborhood, type GraphEntity } from "@/lib/api"
 import { cn } from "@/lib/utils"
@@ -17,16 +16,49 @@ export function GraphPage() {
     | "organization"
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [neighborhood, setNeighborhood] = useState<Neighborhood | undefined>()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+  const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set())
 
-  const {
-    data: neighborhood,
-    isLoading,
-    error,
-  } = useQuery<Neighborhood>({
-    queryKey: ["graph", entityId!, entityType],
-    queryFn: () => fetchGraphTraversal(entityId!, entityType),
-    enabled: !!entityId,
-  })
+  // Initial graph load
+  useEffect(() => {
+    if (!entityId) return
+    setIsLoading(true)
+    setError(null)
+    fetchGraphTraversal(entityId, entityType)
+      .then(setNeighborhood)
+      .catch((e) => setError(e instanceof Error ? e : new Error(String(e))))
+      .finally(() => setIsLoading(false))
+  }, [entityId, entityType])
+
+  // Expand: fetch neighborhood around selected node, merge into current
+  async function handleExpand(nodeId: string, type: string) {
+    try {
+      const newNh = await fetchGraphTraversal(nodeId, type, 1, 50)
+      setNeighborhood((prev) => {
+        if (!prev) return newNh
+        const existingIds = new Set(prev.nodes.map((n) => n.id))
+        const edgeKey = (e: { source: string; target: string }) =>
+          `${e.source}→${e.target}`
+        const existingEdgeKeys = new Set(prev.edges.map(edgeKey))
+        return {
+          center: prev.center,
+          nodes: [
+            ...prev.nodes,
+            ...newNh.nodes.filter((n) => !existingIds.has(n.id)),
+          ],
+          edges: [
+            ...prev.edges,
+            ...newNh.edges.filter((e) => !existingEdgeKeys.has(edgeKey(e))),
+          ],
+        }
+      })
+      setExpandedNodeIds((prev) => new Set(prev).add(nodeId))
+    } catch {
+      // Expansion errors are non-critical — silently ignore
+    }
+  }
 
   const selectedNode = useMemo<GraphEntity | undefined>(() => {
     if (!neighborhood || !selectedNodeId) return undefined
@@ -93,12 +125,14 @@ export function GraphPage() {
         </div>
 
         {/* Sidebar */}
-        {selectedNode && (
+        {selectedNode && neighborhood && (
           <GraphSidebar
             neighborhood={neighborhood}
             selectedNode={selectedNode}
             onSelectNode={handleSelectNode}
             onClose={() => setSelectedNodeId(null)}
+            expandedNodeIds={expandedNodeIds}
+            onExpand={handleExpand}
           />
         )}
       </div>
