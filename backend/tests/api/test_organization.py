@@ -42,9 +42,7 @@ class TestGetOrganization:
             },
         )
 
-        response = await async_client.get(
-            "/api/organization/http%3A%2F%2Fwww.idref.fr%2F999%2Fid"
-        )
+        response = await async_client.get("/api/organization/999")
         assert response.status_code == 200
         assert response.json()["label"] == "Some Org"
 

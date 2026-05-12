@@ -23,7 +23,7 @@ function DetailContent({ detail }: { detail: EntityDetail }) {
       {detail.note && <p>{detail.note}</p>}
       {"organizations" in detail && detail.organizations.length > 0 && (
         <p>
-          Organizations: {detail.organizations.map((o) => o.name).join(", ")}
+          Organizations: {detail.organizations.map((o) => o.label).join(", ")}
         </p>
       )}
     </div>

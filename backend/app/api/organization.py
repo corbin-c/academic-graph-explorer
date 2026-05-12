@@ -29,7 +29,7 @@ def _parse_org_bindings(org_id: str, bindings: list[dict]) -> Organization:
     return Organization(id=org_id, label=name, note=note)
 
 
-@router.get("/{organization_id:path}")
+@router.get("/{organization_id}", response_model=Organization)
 async def get_organization(
     organization_id: str,
     client: IdRefSparqlClient = Depends(get_idref_client),

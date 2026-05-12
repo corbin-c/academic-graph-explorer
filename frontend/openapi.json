@@ -1,0 +1,688 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Academic Graph Explorer API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health Check",
+        "operationId": "health_check_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/graph/": {
+      "get": {
+        "tags": [
+          "graph"
+        ],
+        "summary": "Traverse Graph",
+        "description": "Progressive graph exploration starting from a root entity.\n\nReturns a bounded Neighborhood: the center entity, all discovered\nnodes, and the edges between them.",
+        "operationId": "traverse_graph_api_graph__get",
+        "parameters": [
+          {
+            "name": "root",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Starting entity ID (PPN or full URI)",
+              "title": "Root"
+            },
+            "description": "Starting entity ID (PPN or full URI)"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Entity type: person, organization, or publication",
+              "title": "Type"
+            },
+            "description": "Entity type: person, organization, or publication"
+          },
+          {
+            "name": "depth",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10,
+              "minimum": 1,
+              "description": "Number of hops from root",
+              "default": 2,
+              "title": "Depth"
+            },
+            "description": "Number of hops from root"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "description": "Maximum nodes returned",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Maximum nodes returned"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Neighborhood"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/person/{person_id}": {
+      "get": {
+        "tags": [
+          "person"
+        ],
+        "summary": "Get Person",
+        "description": "Get detailed information about a person from IdRef.\n\nAccepts raw PPN (e.g. \"121375307\") or full IdRef URI\n(e.g. \"http://www.idref.fr/121375307/id\").",
+        "operationId": "get_person_api_person__person_id__get",
+        "parameters": [
+          {
+            "name": "person_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Person Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Person"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/publication/{publication_id}": {
+      "get": {
+        "tags": [
+          "publication"
+        ],
+        "summary": "Get Publication",
+        "description": "Get detailed information about a publication.",
+        "operationId": "get_publication_api_publication__publication_id__get",
+        "parameters": [
+          {
+            "name": "publication_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Publication Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Publication"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/organization/{organization_id}": {
+      "get": {
+        "tags": [
+          "organization"
+        ],
+        "summary": "Get Organization",
+        "description": "Get detailed information about an organization from IdRef.\n\nAccepts raw PPN (e.g. \"227816196\") or full IdRef URI\n(e.g. \"http://www.idref.fr/227816196/id\").",
+        "operationId": "get_organization_api_organization__organization_id__get",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organization"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/search/": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "Search",
+        "description": "Search for persons and organizations in IdRef via SOLR.",
+        "operationId": "search_api_search__get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Search query",
+              "title": "Q"
+            },
+            "description": "Search query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SearchResult"
+                  },
+                  "title": "Response Search Api Search  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api": {
+      "get": {
+        "summary": "Root",
+        "operationId": "root_api_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Dataset": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "endpoint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endpoint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "Dataset",
+        "description": "The data source from which a relationship was retrieved."
+      },
+      "Entity": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "type": {
+            "$ref": "#/components/schemas/EntityType"
+          },
+          "identifiers": {
+            "items": {
+              "$ref": "#/components/schemas/Identifier"
+            },
+            "type": "array",
+            "title": "Identifiers",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "type"
+        ],
+        "title": "Entity",
+        "description": "Base node in the academic graph.\n\nSubclasses: Person, Organization, Publication.\nThe `type` discriminator ensures Pydantic serializes the concrete type\neven when held in a list[Entity] (e.g., Neighborhood.nodes)."
+      },
+      "EntityType": {
+        "type": "string",
+        "enum": [
+          "person",
+          "publication",
+          "organization"
+        ],
+        "title": "EntityType"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Identifier": {
+        "properties": {
+          "scheme": {
+            "type": "string",
+            "title": "Scheme"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scheme",
+          "value"
+        ],
+        "title": "Identifier",
+        "description": "An external identifier (ORCID, DOI, ROR, IdRef, etc.)."
+      },
+      "Neighborhood": {
+        "properties": {
+          "center": {
+            "$ref": "#/components/schemas/Entity"
+          },
+          "nodes": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/Person"
+                },
+                {
+                  "$ref": "#/components/schemas/Organization"
+                },
+                {
+                  "$ref": "#/components/schemas/Publication"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "organization": "#/components/schemas/Organization",
+                  "person": "#/components/schemas/Person",
+                  "publication": "#/components/schemas/Publication"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Nodes"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/Relationship"
+            },
+            "type": "array",
+            "title": "Edges"
+          }
+        },
+        "type": "object",
+        "required": [
+          "center",
+          "nodes",
+          "edges"
+        ],
+        "title": "Neighborhood",
+        "description": "A bounded neighborhood of the graph around a central entity."
+      },
+      "Organization": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "type": {
+            "type": "string",
+            "const": "organization",
+            "title": "Type",
+            "default": "organization"
+          },
+          "identifiers": {
+            "items": {
+              "$ref": "#/components/schemas/Identifier"
+            },
+            "type": "array",
+            "title": "Identifiers",
+            "default": []
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "Organization",
+        "description": "An organization (institution, lab, funder, etc.)."
+      },
+      "Person": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "type": {
+            "type": "string",
+            "const": "person",
+            "title": "Type",
+            "default": "person"
+          },
+          "identifiers": {
+            "items": {
+              "$ref": "#/components/schemas/Identifier"
+            },
+            "type": "array",
+            "title": "Identifiers",
+            "default": []
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "organizations": {
+            "items": {
+              "$ref": "#/components/schemas/Organization"
+            },
+            "type": "array",
+            "title": "Organizations",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "Person",
+        "description": "A person (researcher, author, director, etc.).\n\nLimited to simple self-referencing: person has Organization\nmemberships. Organization is defined before Person to avoid\nforward-reference issues with Pydantic."
+      },
+      "Publication": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "type": {
+            "type": "string",
+            "const": "publication",
+            "title": "Type",
+            "default": "publication"
+          },
+          "identifiers": {
+            "items": {
+              "$ref": "#/components/schemas/Identifier"
+            },
+            "type": "array",
+            "title": "Identifiers",
+            "default": []
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "Publication",
+        "description": "A publication (article, book, thesis, etc.)."
+      },
+      "Relationship": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "source_dataset": {
+            "$ref": "#/components/schemas/Dataset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "target",
+          "type",
+          "source_dataset"
+        ],
+        "title": "Relationship",
+        "description": "A directional relationship between two entities.\n\nThe `type` field carries the role from the data source\n(e.g., \"author\", \"directedBy\", \"host\"). It is free-form."
+      },
+      "SearchResult": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "type"
+        ],
+        "title": "SearchResult",
+        "description": "A search result from IdRef SOLR."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

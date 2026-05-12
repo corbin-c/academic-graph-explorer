@@ -1,145 +1,83 @@
-// ---- Types ----
+import createClient from "openapi-fetch"
+import type { paths, components } from "./api-types"
 
-export interface SearchResult {
-  id: string
-  name: string
-  type: "person" | "organization"
+// ── Typed API client ──────────────────────────────────────────────────
+
+export const client = createClient<paths>({ baseUrl: "" })
+
+// ── Re-exported types from OpenAPI schema ─────────────────────────────
+
+export type SearchResult = components["schemas"]["SearchResult"]
+export type Person = components["schemas"]["Person"]
+export type Organization = components["schemas"]["Organization"]
+export type Publication = components["schemas"]["Publication"]
+export type Identifier = components["schemas"]["Identifier"]
+export type EntityDetail = Person | Organization | Publication
+export type GraphEntity = Person | Organization | Publication
+export type GraphEdge = components["schemas"]["Relationship"]
+export type Neighborhood = components["schemas"]["Neighborhood"]
+
+// ── API functions ─────────────────────────────────────────────────────
+
+/** Search for persons and organizations in IdRef. */
+export async function searchApi(q: string): Promise<SearchResult[]> {
+  const { data, error } = await client.GET("/api/search/", {
+    params: { query: { q } },
+  })
+  if (error) throw new Error("Search failed", { cause: error })
+  return data ?? []
 }
 
-export interface OrganizationRef {
-  id: string
-  name: string
-}
-
-export interface PersonDetail {
-  id: string
-  name: string
-  note: string | null
-  organizations: OrganizationRef[]
-}
-
-export interface OrganizationDetail {
-  id: string
-  name: string
-  note: string | null
-}
-
-export type EntityDetail = PersonDetail | OrganizationDetail
-
-export interface Identifier {
-  scheme: string
-  value: string
-}
-
-export interface GraphEntity {
-  id: string
-  label: string
-  type: string
-  identifiers: Identifier[]
-}
-
-export interface GraphEdge {
-  source: string
-  target: string
-  type: string
-  source_dataset: {
-    name: string
-    endpoint: string | null
-  }
-}
-
-export interface Neighborhood {
-  center: GraphEntity
-  nodes: GraphEntity[]
-  edges: GraphEdge[]
-}
-
-export interface Contribution {
-  id: string
-  title: string
-  role: string | null
-  co_author_name: string | null
-}
-
-export interface PublicationRef {
-  id: string
-  title: string
-  author_name: string | null
-}
-
-export interface PersonRef {
-  id: string
-  name: string
-}
-
-// ---- API functions ----
-
-export async function searchApi(query: string): Promise<SearchResult[]> {
-  const params = new URLSearchParams({ q: query })
-  const response = await fetch(`/api/search/?${params}`)
-  if (!response.ok) {
-    throw new Error(`Search failed: ${response.statusText}`)
-  }
-  return response.json()
-}
-
+/** Get detailed information for an entity by ID and type. */
 export async function fetchEntityDetail(
   id: string,
-  type: "person" | "organization"
+  type: string,
 ): Promise<EntityDetail> {
-  const endpoint = type === "person" ? "person" : "organization"
-  const response = await fetch(`/api/${endpoint}/${encodeURIComponent(id)}`)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${type} details: ${response.statusText}`)
+  if (type === "person") {
+    const { data, error } = await client.GET("/api/person/{person_id}", {
+      params: { path: { person_id: id } },
+    })
+    if (error) throw new Error("Failed to fetch person details", { cause: error })
+    return data!
   }
-  return response.json()
+
+  if (type === "organization") {
+    const { data, error } = await client.GET(
+      "/api/organization/{organization_id}",
+      {
+        params: { path: { organization_id: id } },
+      },
+    )
+    if (error)
+      throw new Error("Failed to fetch organization details", { cause: error })
+    return data!
+  }
+
+  if (type === "publication") {
+    const { data, error } = await client.GET(
+      "/api/publication/{publication_id}",
+      {
+        params: { path: { publication_id: id } },
+      },
+    )
+    if (error)
+      throw new Error("Failed to fetch publication details", { cause: error })
+    return data!
+  }
+
+  throw new Error(`Unknown entity type: ${type}`)
 }
 
+/** Traverse the knowledge graph from a root entity. */
 export async function fetchGraphTraversal(
   root: string,
-  type: "person" | "organization",
-  depth: number = 1,
-  limit: number = 100
+  type: string,
+  depth: number = 2,
+  limit: number = 100,
 ): Promise<Neighborhood> {
-  const params = new URLSearchParams({
-    root,
-    type,
-    depth: String(depth),
-    limit: String(limit),
+  const { data, error } = await client.GET("/api/graph/", {
+    params: { query: { root, type, depth, limit } },
   })
-  const response = await fetch(`/api/graph/?${params}`)
-  if (!response.ok) {
-    throw new Error(`Graph traversal failed: ${response.statusText}`)
-  }
-  return response.json()
-}
-
-export async function fetchPersonContributions(
-  personId: string
-): Promise<Contribution[]> {
-  const response = await fetch(`/api/person/${encodeURIComponent(personId)}/contributions`)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch contributions: ${response.statusText}`)
-  }
-  return response.json()
-}
-
-export async function fetchOrganizationPublications(
-  orgId: string
-): Promise<PublicationRef[]> {
-  const response = await fetch(`/api/organization/${encodeURIComponent(orgId)}/publications`)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch publications: ${response.statusText}`)
-  }
-  return response.json()
-}
-
-export async function fetchOrganizationMembers(
-  orgId: string
-): Promise<PersonRef[]> {
-  const response = await fetch(`/api/organization/${encodeURIComponent(orgId)}/members`)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch members: ${response.statusText}`)
-  }
-  return response.json()
+  if (error) throw new Error("Graph traversal failed", { cause: error })
+  return data!
 }

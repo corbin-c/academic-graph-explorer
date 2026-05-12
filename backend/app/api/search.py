@@ -17,7 +17,7 @@ _RECORDTYPE_MAP = {
 }
 
 
-@router.get("/")
+@router.get("/", response_model=list[SearchResult])
 async def search(
     q: str = Query(..., min_length=1, description="Search query"),
 ):

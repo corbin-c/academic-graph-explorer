@@ -42,7 +42,7 @@ def _parse_person_bindings(person_id: str, bindings: list[dict]) -> Person:
     )
 
 
-@router.get("/{person_id:path}")
+@router.get("/{person_id}", response_model=Person)
 async def get_person(
     person_id: str,
     client: IdRefSparqlClient = Depends(get_idref_client),

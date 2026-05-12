@@ -47,7 +47,7 @@ def _parse_publication_bindings(bindings: list[dict], pub_id: str) -> Publicatio
     )
 
 
-@router.get("/{publication_id:path}")
+@router.get("/{publication_id}", response_model=Publication)
 async def get_publication(
     publication_id: str,
     client: IdRefSparqlClient = Depends(get_idref_client),
