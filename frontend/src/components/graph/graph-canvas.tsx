@@ -6,6 +6,7 @@ interface GraphCanvasProps {
   neighborhood: Neighborhood | undefined
   selectedNodeId: string | null
   onSelectNode: (nodeId: string | null) => void
+  searchQuery: string
 }
 
 interface D3Node extends d3.SimulationNodeDatum {
@@ -21,9 +22,9 @@ interface D3Link extends d3.SimulationLinkDatum<D3Node> {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  person: "var(--color-primary, #3b82f6)",
-  organization: "var(--color-chart-5, #8b5cf6)",
-  publication: "var(--color-chart-2, #10b981)",
+  person: "var(--red)",
+  organization: "var(--blue)",
+  publication: "var(--purple)",
 }
 
 const TYPE_RADIUS: Record<string, number> = {
@@ -32,9 +33,16 @@ const TYPE_RADIUS: Record<string, number> = {
   publication: 6,
 }
 
-export function GraphCanvas({ neighborhood, selectedNodeId, onSelectNode }: GraphCanvasProps) {
+export function GraphCanvas({
+  neighborhood,
+  selectedNodeId,
+  onSelectNode,
+  searchQuery,
+}: GraphCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
+  const gRef = useRef<d3.Selection<SVGGElement, unknown, null, undefined> | null>(null)
   const onSelectNodeRef = useRef(onSelectNode)
   onSelectNodeRef.current = onSelectNode
 
@@ -98,6 +106,7 @@ export function GraphCanvas({ neighborhood, selectedNodeId, onSelectNode }: Grap
 
     // Zoom behavior
     const g = svg.append("g")
+    gRef.current = g
 
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
@@ -107,6 +116,7 @@ export function GraphCanvas({ neighborhood, selectedNodeId, onSelectNode }: Grap
       })
 
     svg.call(zoom)
+    zoomRef.current = zoom
 
     // Click on empty space to deselect
     svg.on("click", (event) => {
@@ -119,7 +129,7 @@ export function GraphCanvas({ neighborhood, selectedNodeId, onSelectNode }: Grap
     // Links
     const link = g
       .append("g")
-      .attr("stroke", "var(--color-border, #d4d4d8)")
+      .attr("stroke", "var(--color-border)")
       .attr("stroke-opacity", 0.6)
       .attr("stroke-width", 1.5)
       .selectAll<SVGLineElement, D3Link>("line")
@@ -133,21 +143,26 @@ export function GraphCanvas({ neighborhood, selectedNodeId, onSelectNode }: Grap
       .data(d3Nodes)
       .join("g")
       .attr("cursor", "pointer")
+      .attr("class", "graph-node")
 
     // Node circles
     nodeG
       .append("circle")
-      .attr("r", (d) => (d.isCenter ? 16 : TYPE_RADIUS[d.type] ?? 7))
-      .attr("fill", (d) => TYPE_COLORS[d.type] ?? "var(--color-muted-foreground)")
+      .attr("r", (d) => (d.isCenter ? 16 : (TYPE_RADIUS[d.type] ?? 7)))
+      .attr(
+        "fill",
+        (d) => TYPE_COLORS[d.type] ?? "var(--color-muted-foreground)"
+      )
       .attr("stroke", (d) => {
-        if (d.id === selectedNodeIdRef.current) return "var(--color-chart-4, #f59e0b)"
-        if (d.isCenter) return "var(--color-primary, #3b82f6)"
+        if (d.id === selectedNodeIdRef.current) return "var(--amber)"
         return "transparent"
       })
-      .attr("stroke-width", (d) => (d.isCenter || d.id === selectedNodeIdRef.current ? 3 : 0))
+      .attr("stroke-width", (d) =>
+        d.isCenter || d.id === selectedNodeIdRef.current ? 3 : 0
+      )
       .style("filter", (d) => {
-        if (d.id === selectedNodeIdRef.current) return "drop-shadow(0 0 8px var(--color-chart-4, #f59e0b))"
-        if (d.isCenter) return "drop-shadow(0 0 6px var(--color-primary, #3b82f6))"
+        if (d.id === selectedNodeIdRef.current)
+          return "drop-shadow(0 0 8px var(--amber))"
         return "none"
       })
 
@@ -213,11 +228,70 @@ export function GraphCanvas({ neighborhood, selectedNodeId, onSelectNode }: Grap
     svg.selectAll<SVGCircleElement, D3Node>("g circle").each(function (d) {
       const circle = d3.select(this)
       const isSelected = d.id === selectedNodeId
-      circle.attr("stroke", isSelected ? "var(--color-chart-4, #f59e0b)" : d.isCenter ? "var(--color-primary, #3b82f6)" : "transparent")
+      circle.attr("stroke", isSelected ? "var(--amber)" : "transparent")
       circle.attr("stroke-width", isSelected || d.isCenter ? 3 : 0)
-      circle.style("filter", isSelected ? "drop-shadow(0 0 8px var(--color-chart-4, #f59e0b))" : d.isCenter ? "drop-shadow(0 0 6px var(--color-primary, #3b82f6))" : "none")
+      circle.style(
+        "filter",
+        isSelected ? "drop-shadow(0 0 8px var(--amber))" : "none"
+      )
     })
   }, [selectedNodeId, neighborhood])
+
+  // Search highlighting
+  useEffect(() => {
+    if (!svgRef.current || !neighborhood) return
+    const svg = d3.select(svgRef.current)
+    const q = searchQuery.trim().toLowerCase()
+
+    if (!q) {
+      // Reset to type colors
+      svg
+        .selectAll<SVGCircleElement, D3Node>(".graph-node circle")
+        .attr("fill", (d) => TYPE_COLORS[d.type] ?? "var(--color-muted-foreground)")
+      return
+    }
+
+    const matchedPositions: Array<{ x: number; y: number }> = []
+
+    svg
+      .selectAll<SVGCircleElement, D3Node>(".graph-node circle")
+      .attr("fill", (d) => {
+        if (d.label.toLowerCase().includes(q)) {
+          matchedPositions.push({ x: d.x ?? 0, y: d.y ?? 0 })
+          return "var(--emerald)"
+        }
+        return TYPE_COLORS[d.type] ?? "var(--color-muted-foreground)"
+      })
+
+    if (matchedPositions.length > 0 && zoomRef.current) {
+      const w = containerRef.current!.clientWidth
+      const h = containerRef.current!.clientHeight
+
+      const xs = matchedPositions.map((m) => m.x)
+      const ys = matchedPositions.map((m) => m.y)
+      const minX = Math.min(...xs)
+      const minY = Math.min(...ys)
+      const maxX = Math.max(...xs)
+      const maxY = Math.max(...ys)
+
+      const centerX = (maxX + minX) / 2
+      const centerY = (maxY + minY) / 2
+      const scale =
+        0.9 /
+        Math.max((maxX - minX + 80) / w, (maxY - minY + 80) / h, 0.15)
+
+      svg
+        .transition()
+        .duration(500)
+        .call(
+          zoomRef.current.transform,
+          d3.zoomIdentity
+            .translate(w / 2, h / 2)
+            .scale(scale)
+            .translate(-centerX, -centerY),
+        )
+    }
+  }, [searchQuery, neighborhood])
 
   // Resize observer
   useEffect(() => {
@@ -234,7 +308,10 @@ export function GraphCanvas({ neighborhood, selectedNodeId, onSelectNode }: Grap
   }, [renderGraph])
 
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-background">
+    <div
+      ref={containerRef}
+      className="relative h-full w-full overflow-hidden bg-background"
+    >
       <svg ref={svgRef} className="h-full w-full" />
     </div>
   )

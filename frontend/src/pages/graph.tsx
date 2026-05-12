@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from "react"
 import { useParams, useSearchParams, Link } from "react-router-dom"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Search } from "lucide-react"
 import { fetchGraphTraversal, type Neighborhood, type GraphEntity } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { GraphCanvas } from "@/components/graph/graph-canvas"
 import { GraphSidebar } from "@/components/graph/graph-sidebar"
@@ -21,6 +22,14 @@ export function GraphPage() {
   const [error, setError] = useState<Error | null>(null)
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set())
   const [expandingNodeId, setExpandingNodeId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [expandDepth, setExpandDepth] = useState(2)
+
+  const matchCount = useMemo(() => {
+    if (!searchQuery.trim() || !neighborhood) return 0
+    const q = searchQuery.toLowerCase()
+    return neighborhood.nodes.filter((n) => n.label.toLowerCase().includes(q)).length
+  }, [searchQuery, neighborhood])
 
   // Initial graph load
   useEffect(() => {
@@ -37,7 +46,7 @@ export function GraphPage() {
   async function handleExpand(nodeId: string, type: string) {
     setExpandingNodeId(nodeId)
     try {
-      const newNh = await fetchGraphTraversal(nodeId, type, 1, 50)
+      const newNh = await fetchGraphTraversal(nodeId, type, expandDepth, 50)
       setNeighborhood((prev) => {
         if (!prev) return newNh
         const existingIds = new Set(prev.nodes.map((n) => n.id))
@@ -124,6 +133,7 @@ export function GraphPage() {
               neighborhood={neighborhood}
               selectedNodeId={selectedNodeId}
               onSelectNode={handleSelectNode}
+              searchQuery={searchQuery}
             />
           )}
         </div>
@@ -141,6 +151,37 @@ export function GraphPage() {
           />
         )}
       </div>
+
+      {/* Bottom bar — search + depth */}
+      {neighborhood && (
+        <footer className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-2">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search nodes..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-8 flex-1 border-0 bg-transparent text-sm focus-visible:ring-0"
+          />
+          {searchQuery && matchCount > 0 && (
+            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+              {matchCount} match{matchCount !== 1 ? "es" : ""}
+            </span>
+          )}
+          <span className="shrink-0 text-xs text-muted-foreground">Depth:</span>
+          <select
+            value={expandDepth}
+            onChange={(e) => setExpandDepth(Number(e.target.value))}
+            className="h-8 shrink-0 rounded-none border border-border bg-background px-2 text-xs"
+          >
+            {[1, 2, 3, 4, 5].map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </footer>
+      )}
     </div>
   )
 }
