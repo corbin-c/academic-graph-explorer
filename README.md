@@ -12,6 +12,8 @@ The central interaction is **progressive graph exploration**: a user starts from
 
 ![Screenshot](./screenshot.png)
 
+_Example exploration of [PRISM — Laboratoire Perception, Représentations, Image, Son, Musique (UMR 7061)](http://www.prism.cnrs.fr), Marseille. The graph shows researchers, publications, and institutional relationships discovered from the scholarly data._
+
 ## Architecture
 
 The application consists of two main parts:
