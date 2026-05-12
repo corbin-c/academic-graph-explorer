@@ -3,10 +3,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.dependencies import get_idref_client
-from app.domain.entity import Contribution, OrganizationRef, Person
+from app.domain.entity import Organization, Person
 from app.normalize import normalize_idref_id
 from app.sources.client import SparqlQueryError
-from app.sources.idref.queries import PERSON, PERSON_CONTRIBUTIONS
+from app.sources.idref.queries import PERSON
 from app.sources.idref.sparql import IdRefSparqlClient
 
 router = APIRouter(prefix="/person", tags=["person"])
@@ -33,42 +33,13 @@ def _parse_person_bindings(person_id: str, bindings: list[dict]) -> Person:
         raise ValueError("No name found in SPARQL bindings for person")
 
     return Person(
-        id=person_id,
-        name=name,
+        id=normalize_idref_id(person_id),
+        label=name,
         note=note,
         organizations=[
-            OrganizationRef(id=oid, name=oname) for oid, oname in orgs.items()
+            Organization(id=org_id, label=org_name) for org_id, org_name in orgs.items()
         ],
     )
-
-
-@router.get("/{person_id:path}/contributions")
-async def get_person_contributions(
-    person_id: str,
-    client: IdRefSparqlClient = Depends(get_idref_client),
-):
-    """Get co-authored publications for a person from IdRef."""
-    person_uri = normalize_idref_id(person_id)
-    query = PERSON_CONTRIBUTIONS.replace("$person", f"<{person_uri}>")
-
-    try:
-        result = await client.cached_query(query)
-    except SparqlQueryError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
-
-    bindings = result.get("results", {}).get("bindings", [])
-
-    return [
-        Contribution(
-            id=b["doc"]["value"],
-            title=b["title"]["value"],
-            role=b.get("role", {}).get("value") if "role" in b else None,
-            co_author_name=b.get("author_name", {}).get("value")
-            if "author_name" in b
-            else None,
-        )
-        for b in bindings
-    ]
 
 
 @router.get("/{person_id:path}")

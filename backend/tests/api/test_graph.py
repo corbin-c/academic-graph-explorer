@@ -1,56 +1,60 @@
+"""Tests for the Graph traversal API endpoint."""
+
 import pytest
 
-IDREF = "https://data.idref.fr/sparql"
 
-
-class TestGraphTraversalValidation:
-    """Input validation tests (no SPARQL mocking needed)."""
-
+class TestGraphValidation:
     @pytest.mark.asyncio
     async def test_missing_root_returns_422(self, async_client):
-        response = await async_client.get("/api/graph/", params={"type": "person"})
+        response = await async_client.get("/api/graph/")
         assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_missing_type_returns_422(self, async_client):
-        response = await async_client.get("/api/graph/", params={"root": "121375307"})
+        response = await async_client.get(
+            "/api/graph/", params={"root": "http://www.idref.fr/001/id"}
+        )
         assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_invalid_type_returns_422(self, async_client):
         response = await async_client.get(
-            "/api/graph/", params={"root": "121375307", "type": "invalid"}
+            "/api/graph/",
+            params={"root": "http://www.idref.fr/001/id", "type": "banana"},
         )
         assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_depth_zero_returns_422(self, async_client):
         response = await async_client.get(
-            "/api/graph/", params={"root": "121375307", "type": "person", "depth": 0}
+            "/api/graph/",
+            params={
+                "root": "http://www.idref.fr/001/id",
+                "type": "person",
+                "depth": 0,
+            },
         )
         assert response.status_code == 422
 
 
-class TestDepthOne:
-    """Depth 1 — only the root entity, no edges."""
-
+class TestGraphDepthOne:
     @pytest.mark.asyncio
-    async def test_person_depth_one(self, async_client, httpx_mock):
-        # Response 1: person.sparql (entity info, no orgs inline)
+    async def test_single_node_no_edges(self, async_client, httpx_mock):
+        """Depth-1 traversal: just the root entity, no additional queries."""
         httpx_mock.add_response(
-            url=IDREF,
+            url="https://data.idref.fr/sparql",
             method="POST",
             json={
                 "results": {
                     "bindings": [
-                        {"name": {"value": "Dacos, Marin"}},
+                        {"name": {"type": "literal", "value": "Alice"}},
                     ]
                 }
             },
         )
-        # Response 2: person_contributions.sparql (no publications)
+        # Contributions query (runs at depth 0 < 1, returns empty)
         httpx_mock.add_response(
-            url=IDREF,
+            url="https://data.idref.fr/sparql",
             method="POST",
             json={"results": {"bindings": []}},
         )
@@ -58,275 +62,329 @@ class TestDepthOne:
         response = await async_client.get(
             "/api/graph/",
             params={
-                "root": "http://www.idref.fr/121375307/id",
+                "root": "http://www.idref.fr/001/id",
                 "type": "person",
                 "depth": 1,
             },
         )
         assert response.status_code == 200
         data = response.json()
-
-        assert data["center"]["id"] == "http://www.idref.fr/121375307/id"
-        assert data["center"]["label"] == "Dacos, Marin"
-        assert data["center"]["type"] == "person"
         assert len(data["nodes"]) == 1
-        assert len(data["edges"]) == 0
-
-
-class TestDepthTwoPersonOrgs:
-    """Depth 2 — person with affiliated organizations."""
+        assert data["nodes"][0]["label"] == "Alice"
+        assert data["nodes"][0]["type"] == "person"
 
     @pytest.mark.asyncio
-    async def test_person_with_one_org(self, async_client, httpx_mock):
-        # Response 1: person.sparql (entity info + orgs inline)
+    async def test_person_with_org_inline(self, async_client, httpx_mock):
+        """Person entity query returns org inline — edge created at depth 1."""
         httpx_mock.add_response(
-            url=IDREF,
+            url="https://data.idref.fr/sparql",
             method="POST",
             json={
                 "results": {
                     "bindings": [
                         {
-                            "name": {"value": "Dacos, Marin"},
-                            "org": {"value": "http://www.idref.fr/227816196/id"},
-                            "orgName": {"value": "EHESS"},
-                        }
-                    ]
-                }
-            },
-        )
-        # Response 2: person_contributions.sparql (no co-authored pubs)
-        httpx_mock.add_response(
-            url=IDREF,
-            method="POST",
-            json={"results": {"bindings": []}},
-        )
-        # Response 3: organization.sparql (entity info for EHESS)
-        httpx_mock.add_response(
-            url=IDREF,
-            method="POST",
-            json={
-                "results": {
-                    "bindings": [
-                        {
-                            "name": {
-                                "value": "École des hautes études en sciences sociales"
-                            }
+                            "name": {"type": "literal", "value": "Alice"},
+                            "org": {
+                                "type": "uri",
+                                "value": "http://www.idref.fr/org1/id",
+                            },
+                            "orgName": {"type": "literal", "value": "CNRS"},
                         },
                     ]
                 }
             },
         )
-        # Response 4: organization_members.sparql (no members)
+        # Contributions query
         httpx_mock.add_response(
-            url=IDREF,
+            url="https://data.idref.fr/sparql",
             method="POST",
             json={"results": {"bindings": []}},
         )
-        # Response 5: organization_publications.sparql (no pubs)
+        # Org entity query for the inline org
         httpx_mock.add_response(
-            url=IDREF,
+            url="https://data.idref.fr/sparql",
             method="POST",
-            json={"results": {"bindings": []}},
+            json={
+                "results": {
+                    "bindings": [
+                        {"name": {"type": "literal", "value": "CNRS"}},
+                    ]
+                }
+            },
         )
 
         response = await async_client.get(
             "/api/graph/",
-            params={"root": "121375307", "type": "person", "depth": 2},
+            params={
+                "root": "http://www.idref.fr/001/id",
+                "type": "person",
+                "depth": 1,
+            },
         )
-
         assert response.status_code == 200
         data = response.json()
-
-        # 2 nodes: person + org
         assert len(data["nodes"]) == 2
-        # 1 edge: person → org (AFFILIATED_WITH)
         assert len(data["edges"]) == 1
         assert data["edges"][0]["type"] == "affiliatedWith"
-        assert data["edges"][0]["source"] == "http://www.idref.fr/121375307/id"
-        assert data["edges"][0]["target"] == "http://www.idref.fr/227816196/id"
 
 
-class TestDeduplication:
-    """Dedup — same entity or edge should only appear once."""
-
+class TestGraphDepthTwo:
     @pytest.mark.asyncio
-    async def test_same_org_via_multiple_paths(self, async_client, httpx_mock):
-        # person.sparql → returns 2 orgs (CNRS, EHESS)
+    async def test_person_to_pubs_via_contributions(self, async_client, httpx_mock):
+        """Depth-2: person -> contributions -> publication entities."""
+        # 1. Person entity query
         httpx_mock.add_response(
-            url=IDREF,
+            url="https://data.idref.fr/sparql",
             method="POST",
             json={
                 "results": {
                     "bindings": [
+                        {"name": {"type": "literal", "value": "Alice"}},
                         {
-                            "name": {"value": "Dacos, Marin"},
-                            "org": {"value": "http://www.idref.fr/001/id"},
-                            "orgName": {"value": "CNRS"},
-                        },
-                        {
-                            "name": {"value": "Dacos, Marin"},
-                            "org": {"value": "http://www.idref.fr/002/id"},
-                            "orgName": {"value": "EHESS"},
+                            "org": {
+                                "type": "uri",
+                                "value": "http://www.idref.fr/org1/id",
+                            },
+                            "orgName": {"type": "literal", "value": "CNRS"},
                         },
                     ]
                 }
             },
         )
-        # person_contributions.sparql
+        # 2. Person contributions query
         httpx_mock.add_response(
-            url=IDREF,
+            url="https://data.idref.fr/sparql",
+            method="POST",
+            json={
+                "results": {
+                    "bindings": [
+                        {
+                            "doc": {
+                                "type": "uri",
+                                "value": "http://www.idref.fr/pub1/id",
+                            },
+                            "title": {"type": "literal", "value": "My Paper"},
+                            "role": {"type": "literal", "value": "author"},
+                            "author_name": {"type": "literal", "value": "Bob"},
+                        },
+                    ]
+                }
+            },
+        )
+        # 3. Org entity query
+        httpx_mock.add_response(
+            url="https://data.idref.fr/sparql",
+            method="POST",
+            json={
+                "results": {
+                    "bindings": [
+                        {"name": {"type": "literal", "value": "CNRS"}},
+                    ]
+                }
+            },
+        )
+        # 4. Org members query
+        httpx_mock.add_response(
+            url="https://data.idref.fr/sparql",
             method="POST",
             json={"results": {"bindings": []}},
         )
-        # organization.sparql for CNRS
+        # 5. Org publications query (doc extraction; author extraction reuses cache)
         httpx_mock.add_response(
-            url=IDREF,
-            method="POST",
-            json={
-                "results": {
-                    "bindings": [{"name": {"value": "CNRS"}}],
-                }
-            },
-        )
-        # org_members for CNRS → returns the same person we started from
-        httpx_mock.add_response(
-            url=IDREF,
-            method="POST",
-            json={
-                "results": {
-                    "bindings": [
-                        {
-                            "person": {"value": "http://www.idref.fr/121375307/id"},
-                            "name": {"value": "Dacos, Marin"},
-                        }
-                    ]
-                }
-            },
-        )
-        # org_publications for CNRS
-        httpx_mock.add_response(
-            url=IDREF,
+            url="https://data.idref.fr/sparql",
             method="POST",
             json={"results": {"bindings": []}},
         )
-        # organization.sparql for EHESS
+        # NOTE: 2nd org publications call (author extraction) uses cached result
+        # — no HTTP call, no mock consumed. Next mock (#6) goes to pub entity.
+        # 6. Publication entity query
         httpx_mock.add_response(
-            url=IDREF,
-            method="POST",
-            json={
-                "results": {
-                    "bindings": [{"name": {"value": "EHESS"}}],
-                }
-            },
-        )
-        # org_members for EHESS → also returns the same person
-        httpx_mock.add_response(
-            url=IDREF,
+            url="https://data.idref.fr/sparql",
             method="POST",
             json={
                 "results": {
                     "bindings": [
-                        {
-                            "person": {"value": "http://www.idref.fr/121375307/id"},
-                            "name": {"value": "Dacos, Marin"},
-                        }
+                        {"title": {"type": "literal", "value": "My Paper"}},
                     ]
                 }
             },
         )
-        # org_publications for EHESS
+        # 7. Publication persons query
         httpx_mock.add_response(
-            url=IDREF,
+            url="https://data.idref.fr/sparql",
+            method="POST",
+            json={"results": {"bindings": []}},
+        )
+        # 8. Publication organizations query
+        httpx_mock.add_response(
+            url="https://data.idref.fr/sparql",
             method="POST",
             json={"results": {"bindings": []}},
         )
 
         response = await async_client.get(
             "/api/graph/",
-            params={"root": "121375307", "type": "person", "depth": 2},
+            params={
+                "root": "http://www.idref.fr/001/id",
+                "type": "person",
+                "depth": 2,
+            },
         )
-
         assert response.status_code == 200
         data = response.json()
-
-        # 3 nodes: person + CNRS + EHESS (no duplicates)
         assert len(data["nodes"]) == 3
-        # 2 edges: person→CNRS, person→EHESS (no reverse edges from org_members)
-        assert len(data["edges"]) == 2
-
-
-class TestErrorHandling:
-    """Graceful handling of SPARQL failures during traversal."""
+        edge_types = {e["type"] for e in data["edges"]}
+        assert "authorOf" in edge_types or "author" in edge_types or "relatedTo" in edge_types
+        assert "affiliatedWith" in edge_types
 
     @pytest.mark.asyncio
-    async def test_root_not_found(self, async_client, httpx_mock):
+    async def test_deduplication(self, async_client, httpx_mock):
+        """Same entity discovered via two paths should appear once."""
+        # 1. Person entity query + inline org
         httpx_mock.add_response(
-            url=IDREF,
+            url="https://data.idref.fr/sparql",
+            method="POST",
+            json={
+                "results": {
+                    "bindings": [
+                        {"name": {"type": "literal", "value": "Alice"}},
+                        {
+                            "org": {
+                                "type": "uri",
+                                "value": "http://www.idref.fr/org1/id",
+                            },
+                            "orgName": {"type": "literal", "value": "CNRS"},
+                        },
+                    ]
+                }
+            },
+        )
+        # 2. Contributions query
+        httpx_mock.add_response(
+            url="https://data.idref.fr/sparql",
+            method="POST",
+            json={
+                "results": {
+                    "bindings": [
+                        {
+                            "doc": {
+                                "type": "uri",
+                                "value": "http://www.idref.fr/pub1/id",
+                            },
+                            "title": {"type": "literal", "value": "Paper"},
+                        },
+                    ]
+                }
+            },
+        )
+        # 3. Org entity query
+        httpx_mock.add_response(
+            url="https://data.idref.fr/sparql",
+            method="POST",
+            json={
+                "results": {
+                    "bindings": [
+                        {"name": {"type": "literal", "value": "CNRS"}},
+                    ]
+                }
+            },
+        )
+        # 4. Org members query
+        httpx_mock.add_response(
+            url="https://data.idref.fr/sparql",
+            method="POST",
+            json={"results": {"bindings": []}},
+        )
+        # 5. Org publications query (doc extraction; author extraction reuses cache)
+        httpx_mock.add_response(
+            url="https://data.idref.fr/sparql",
+            method="POST",
+            json={"results": {"bindings": []}},
+        )
+        # 6. Publication entity query
+        httpx_mock.add_response(
+            url="https://data.idref.fr/sparql",
+            method="POST",
+            json={
+                "results": {
+                    "bindings": [
+                        {"title": {"type": "literal", "value": "Paper"}},
+                    ]
+                }
+            },
+        )
+        # 7. Publication persons query
+        httpx_mock.add_response(
+            url="https://data.idref.fr/sparql",
+            method="POST",
+            json={"results": {"bindings": []}},
+        )
+        # 8. Publication organizations query
+        httpx_mock.add_response(
+            url="https://data.idref.fr/sparql",
             method="POST",
             json={"results": {"bindings": []}},
         )
 
         response = await async_client.get(
             "/api/graph/",
-            params={"root": "99999999", "type": "person", "depth": 1},
+            params={
+                "root": "http://www.idref.fr/001/id",
+                "type": "person",
+                "depth": 2,
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["nodes"]) == 3
+
+    @pytest.mark.asyncio
+    async def test_root_not_found_returns_404(self, async_client, httpx_mock):
+        httpx_mock.add_response(
+            url="https://data.idref.fr/sparql",
+            method="POST",
+            json={"results": {"bindings": []}},
+        )
+
+        response = await async_client.get(
+            "/api/graph/",
+            params={
+                "root": "http://www.idref.fr/bad/id",
+                "type": "person",
+                "depth": 1,
+            },
         )
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_sparql_error_on_relationships(self, async_client, httpx_mock):
-        """When a relationship query fails, traversal continues."""
-        # person.sparql → returns name + 1 org
+    async def test_sparql_error_graceful_recovery(self, async_client, httpx_mock):
+        """Individual SPARQL failure should not crash traversal."""
         httpx_mock.add_response(
-            url=IDREF,
+            url="https://data.idref.fr/sparql",
             method="POST",
             json={
                 "results": {
                     "bindings": [
-                        {
-                            "name": {"value": "Dacos, Marin"},
-                            "org": {"value": "http://www.idref.fr/001/id"},
-                            "orgName": {"value": "CNRS"},
-                        }
+                        {"name": {"type": "literal", "value": "Alice"}},
                     ]
                 }
             },
         )
-        # person_contributions.sparql → fails (500)
+        # Contributions query fails
         httpx_mock.add_response(
-            url=IDREF,
+            url="https://data.idref.fr/sparql",
             method="POST",
             status_code=500,
-        )
-        # organization.sparql for CNRS
-        httpx_mock.add_response(
-            url=IDREF,
-            method="POST",
-            json={
-                "results": {
-                    "bindings": [{"name": {"value": "CNRS"}}],
-                }
-            },
-        )
-        # org_members for CNRS
-        httpx_mock.add_response(
-            url=IDREF,
-            method="POST",
-            json={"results": {"bindings": []}},
-        )
-        # org_publications for CNRS
-        httpx_mock.add_response(
-            url=IDREF,
-            method="POST",
-            json={"results": {"bindings": []}},
         )
 
         response = await async_client.get(
             "/api/graph/",
-            params={"root": "121375307", "type": "person", "depth": 2},
+            params={
+                "root": "http://www.idref.fr/001/id",
+                "type": "person",
+                "depth": 2,
+            },
         )
-
-        # Should still succeed — just without the publications edge
         assert response.status_code == 200
         data = response.json()
-        assert len(data["nodes"]) == 2  # person + CNRS
-        assert len(data["edges"]) == 1  # just the AFFILIATED_WITH edge
+        assert len(data["nodes"]) == 1

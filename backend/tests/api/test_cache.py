@@ -33,13 +33,13 @@ class TestCacheBehavior:
         # First call — hits SPARQL, caches result
         response1 = await async_client.get("/api/person/000000001")
         assert response1.status_code == 200
-        assert response1.json()["name"] == "Test Person"
+        assert response1.json()["label"] == "Test Person"
 
         # Second call — should use cache, but httpx_mock still has the response
         # If caching works, only one SPARQL call was made across both requests
         response2 = await async_client.get("/api/person/000000001")
         assert response2.status_code == 200
-        assert response2.json()["name"] == "Test Person"
+        assert response2.json()["label"] == "Test Person"
 
         # Verify only one HTTP request was made (the second was cached)
         requests = httpx_mock.get_requests()
@@ -70,7 +70,7 @@ class TestCacheBehavior:
         )
 
         response_a = await async_client.get("/api/person/000000001")
-        assert response_a.json()["name"] == "Person A"
+        assert response_a.json()["label"] == "Person A"
         assert len(httpx_mock.get_requests()) == 1
 
         # Switch mock to different response for different person
@@ -82,5 +82,5 @@ class TestCacheBehavior:
         )
 
         response_b = await async_client.get("/api/person/000000002")
-        assert response_b.json()["name"] == "Person B"
+        assert response_b.json()["label"] == "Person B"
         assert len(httpx_mock.get_requests()) == 1

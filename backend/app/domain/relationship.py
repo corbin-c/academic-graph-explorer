@@ -1,25 +1,16 @@
 """
 Relationship model for edges in the academic graph.
+
+The relationship type is a free-form string (e.g., "authorOf",
+"affiliatedWith", "produced") rather than a closed enum, because
+SPARQL endpoints return diverse roles that we relay directly.
 """
 
-from enum import StrEnum
 from typing import NewType
 
 from pydantic import BaseModel
 
 EntityId = NewType("EntityId", str)
-
-
-class RelationshipType(StrEnum):
-    AUTHOR_OF = "authorOf"
-    CITES = "cites"
-    AFFILIATED_WITH = "affiliatedWith"
-    CONTRIBUTES_TO = "contributesTo"
-    PART_OF = "partOf"
-    PRODUCED = "produced"
-    FUNDED_BY = "fundedBy"
-    SUPERVISES = "supervises"
-    DIRECTED_BY = "directedBy"
 
 
 class Dataset(BaseModel):
@@ -30,9 +21,13 @@ class Dataset(BaseModel):
 
 
 class Relationship(BaseModel):
-    """A directional relationship between two entities."""
+    """A directional relationship between two entities.
+
+    The `type` field carries the role from the data source
+    (e.g., "author", "directedBy", "host"). It is free-form.
+    """
 
     source: EntityId
     target: EntityId
-    type: RelationshipType
+    type: str
     source_dataset: Dataset

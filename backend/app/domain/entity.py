@@ -1,8 +1,15 @@
 """
 Core domain models for academic graph nodes.
+
+Entity is the base type with three discriminated subclasses:
+Person, Organization, and Publication. Each carries its own
+context-specific fields (e.g., Person has organizations, Publication
+has a doi). The `type` field uses a Literal discriminator so Pydantic
+serializes the concrete subclass even when the list is typed as list[Entity].
 """
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -20,8 +27,25 @@ class Identifier(BaseModel):
     value: str
 
 
+def dedup_identifiers(identifiers: list[Identifier]) -> list[Identifier]:
+    """Deduplicate identifiers by (scheme, value) while preserving order."""
+    seen: set[tuple[str, str]] = set()
+    result: list[Identifier] = []
+    for ident in identifiers:
+        key = (ident.scheme, ident.value)
+        if key not in seen:
+            seen.add(key)
+            result.append(ident)
+    return result
+
+
 class Entity(BaseModel):
-    """A node in the academic graph."""
+    """Base node in the academic graph.
+
+    Subclasses: Person, Organization, Publication.
+    The `type` discriminator ensures Pydantic serializes the concrete type
+    even when held in a list[Entity] (e.g., Neighborhood.nodes).
+    """
 
     id: str
     label: str
@@ -29,74 +53,29 @@ class Entity(BaseModel):
     identifiers: list[Identifier] = []
 
 
-class OrganizationRef(BaseModel):
-    """A lightweight organization reference used in person details."""
+class Organization(Entity):
+    """An organization (institution, lab, funder, etc.)."""
 
-    id: str
-    name: str
-
-
-class Person(BaseModel):
-    """Detailed information about a person from IdRef."""
-
-    id: str
-    name: str
-    note: str | None = None
-    organizations: list[OrganizationRef] = []
-
-
-class Organization(BaseModel):
-    """Detailed information about an organization from IdRef."""
-
-    id: str
-    name: str
+    type: Literal[EntityType.ORGANIZATION] = EntityType.ORGANIZATION
     note: str | None = None
 
 
-class PersonRef(BaseModel):
-    """A lightweight person reference (e.g. org member listing)."""
+class Person(Entity):
+    """A person (researcher, author, director, etc.).
 
-    id: str
-    name: str
+    Limited to simple self-referencing: person has Organization
+    memberships. Organization is defined before Person to avoid
+    forward-reference issues with Pydantic.
+    """
 
-
-class PublicationRef(BaseModel):
-    """A lightweight publication reference."""
-
-    id: str
-    title: str
-    author_name: str | None = None
+    type: Literal[EntityType.PERSON] = EntityType.PERSON
+    note: str | None = None
+    organizations: list[Organization] = []
 
 
-class Contribution(BaseModel):
-    """A contribution entry — publication with role and sampled co-author."""
+class Publication(Entity):
+    """A publication (article, book, thesis, etc.)."""
 
-    id: str
-    title: str
-    role: str | None = None
-    co_author_name: str | None = None
-
-
-class Publication(BaseModel):
-    """Detailed information about a publication from IdRef/SUDOC."""
-
-    id: str
-    title: str
+    type: Literal[EntityType.PUBLICATION] = EntityType.PUBLICATION
     doi: str | None = None
     identifiers: list[Identifier] = []
-
-
-class PersonRole(BaseModel):
-    """A person linked to a publication with their role."""
-
-    id: str
-    name: str
-    role: str | None = None
-
-
-class OrgRole(BaseModel):
-    """An organization linked to a publication with its role."""
-
-    id: str
-    name: str
-    role: str | None = None

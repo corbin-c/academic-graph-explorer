@@ -1,26 +1,4 @@
-from app.domain.relationship import (
-    Dataset,
-    EntityId,
-    Relationship,
-    RelationshipType,
-)
-
-
-class TestRelationshipType:
-    def test_all_types_exist(self):
-        expected = {
-            "authorOf",
-            "cites",
-            "affiliatedWith",
-            "contributesTo",
-            "partOf",
-            "produced",
-            "fundedBy",
-            "supervises",
-            "directedBy",
-        }
-        actual = set(RelationshipType)
-        assert actual == expected
+from app.domain.relationship import Dataset, EntityId, Relationship
 
 
 class TestEntityId:
@@ -48,24 +26,33 @@ class TestRelationship:
         rel = Relationship(
             source=source,
             target=target,
-            type=RelationshipType.AUTHOR_OF,
+            type="authorOf",
             source_dataset=Dataset(name="IdRef"),
         )
         assert rel.source == source
         assert rel.target == target
-        assert rel.type == RelationshipType.AUTHOR_OF
+        assert rel.type == "authorOf"
         assert rel.source_dataset.name == "IdRef"
+
+    def test_free_form_type_string(self):
+        """Relationship type is free-form, not a closed enum."""
+        rel = Relationship(
+            source=EntityId("s"),
+            target=EntityId("t"),
+            type="directedBy",
+            source_dataset=Dataset(name="IdRef"),
+        )
+        assert rel.type == "directedBy"
 
     def test_create_from_dict(self):
         data = {
             "source": "http://www.idref.fr/001/id",
             "target": "http://www.idref.fr/002/id",
-            "type": "directedBy",
+            "type": "affiliatedWith",
             "source_dataset": {
                 "name": "IdRef",
                 "endpoint": "https://data.idref.fr/sparql",
             },
         }
         rel = Relationship.model_validate(data)
-        assert rel.type == RelationshipType.DIRECTED_BY
-        assert rel.source_dataset.endpoint == "https://data.idref.fr/sparql"
+        assert rel.type == "affiliatedWith"
