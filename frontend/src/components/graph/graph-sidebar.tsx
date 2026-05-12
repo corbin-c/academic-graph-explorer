@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { X, GitBranch, ChevronRight, Loader2, Check, Info } from "lucide-react"
+import { X, GitBranch, ChevronRight, Loader2, Info } from "lucide-react"
 import type { Neighborhood, GraphEntity, EntityDetail } from "@/lib/api"
 import { fetchEntityDetail } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,18 @@ interface GraphSidebarProps {
 }
 
 function DetailContent({ detail }: { detail: EntityDetail }) {
+  const hasNote = detail.note != null
+  const orgs = "organizations" in detail ? detail.organizations : []
+  const hasOrgs = orgs.length > 0
+
+  if (!hasNote && !hasOrgs) {
+    return (
+      <div className="mt-2 text-xs text-muted-foreground">
+        No details available.
+      </div>
+    )
+  }
+
   return (
     <div className="mt-2 space-y-1 text-xs text-muted-foreground">
       {detail.note && <p>{detail.note}</p>}
@@ -74,6 +86,9 @@ export function GraphSidebar({
             </Badge>
           </div>
 
+          {/* Full name (untruncated) */}
+          <p className="text-sm font-medium">{selectedNode.label}</p>
+
           {/* Identifiers */}
           {selectedNode.identifiers.length > 0 && (
             <>
@@ -91,22 +106,22 @@ export function GraphSidebar({
           {showDetailButton && (
             <>
               <Separator />
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => setDetailRequested(true)}
-                disabled={detailQuery.isLoading || detailQuery.isSuccess}
-              >
-                {detailQuery.isLoading ? (
-                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                ) : detailQuery.isSuccess ? (
-                  <Check className="mr-2 h-3.5 w-3.5" />
-                ) : (
-                  <Info className="mr-2 h-3.5 w-3.5" />
-                )}
-                Details
-              </Button>
+              {!detailQuery.isSuccess && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setDetailRequested(true)}
+                  disabled={detailQuery.isLoading}
+                >
+                  {detailQuery.isLoading ? (
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Info className="mr-2 h-3.5 w-3.5" />
+                  )}
+                  Details
+                </Button>
+              )}
               {detailQuery.data && (
                 <DetailContent detail={detailQuery.data} />
               )}

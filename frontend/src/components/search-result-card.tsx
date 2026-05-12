@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
 import {
   Info,
-  Check,
   Loader2,
   ArrowRight,
   Building2,
@@ -21,6 +20,18 @@ interface SearchResultCardProps {
 }
 
 function DetailContent({ detail }: { detail: EntityDetail }) {
+  const hasNote = detail.note != null
+  const orgs = "organizations" in detail ? detail.organizations : []
+  const hasOrgs = orgs.length > 0
+
+  if (!hasNote && !hasOrgs) {
+    return (
+      <div className="mt-2 text-xs text-muted-foreground">
+        No details available.
+      </div>
+    )
+  }
+
   return (
     <div className="mt-2 space-y-1 text-xs text-muted-foreground">
       {detail.note && <p>{detail.note}</p>}
@@ -31,7 +42,6 @@ function DetailContent({ detail }: { detail: EntityDetail }) {
             {detail.organizations.map((o) => (
               <li key={o.id} className="flex items-center gap-1">
                 <Building2 className="h-3 w-3 shrink-0 text-muted-foreground" />
-
                 {o.label}
               </li>
             ))}
@@ -54,21 +64,21 @@ export function SearchResultCard({ result }: SearchResultCardProps) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setDetailRequested(true)}
-          disabled={detailQuery.isLoading || detailQuery.isSuccess}
-        >
-          {detailQuery.isLoading ? (
-            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-          ) : detailQuery.isSuccess ? (
-            <Check className="mr-1 h-3 w-3" />
-          ) : (
-            <Info className="mr-1 h-3 w-3" />
-          )}
-          Details
-        </Button>
+        {!detailQuery.isSuccess && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDetailRequested(true)}
+            disabled={detailQuery.isLoading}
+          >
+            {detailQuery.isLoading ? (
+              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+            ) : (
+              <Info className="mr-1 h-3 w-3" />
+            )}
+            Details
+          </Button>
+        )}
 
         <Link
           to={`/graph/${encodeURIComponent(result.id)}?type=${result.type}`}
