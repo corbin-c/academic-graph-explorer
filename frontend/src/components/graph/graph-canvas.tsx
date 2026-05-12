@@ -51,6 +51,9 @@ export function GraphCanvas({
   const selectedNodeIdRef = useRef(selectedNodeId)
   selectedNodeIdRef.current = selectedNodeId
 
+  const simulationRef = useRef<d3.Simulation<D3Node, D3Link> | null>(null)
+  const positionsRef = useRef<Map<string, { x: number; y: number }>>(new Map())
+
   const renderGraph = useCallback(() => {
     const svg = d3.select(svgRef.current!)
     const container = containerRef.current!
@@ -78,12 +81,17 @@ export function GraphCanvas({
       nodeMap.set(n.id, n)
     }
 
-    const d3Nodes: D3Node[] = neighborhood.nodes.map((n) => ({
-      id: n.id,
-      label: n.label,
-      type: n.type,
-      isCenter: n.id === neighborhood.center.id,
-    }))
+    const d3Nodes: D3Node[] = neighborhood.nodes.map((n) => {
+      const prev = positionsRef.current.get(n.id)
+      return {
+        id: n.id,
+        label: n.label,
+        type: n.type,
+        isCenter: n.id === neighborhood.center.id,
+        x: prev?.x,
+        y: prev?.y,
+      }
+    })
 
     const d3Links: D3Link[] = neighborhood.edges
       .filter((e) => nodeMap.has(e.source) && nodeMap.has(e.target))
@@ -121,6 +129,8 @@ export function GraphCanvas({
         const scale = deg <= 1 ? 1 : Math.min(1 + (deg - 1) * 0.15, 3)
         return base * scale + 20
       }))
+
+    simulationRef.current = simulation
 
     // Zoom behavior
     const g = svg.append("g")
@@ -251,7 +261,13 @@ export function GraphCanvas({
     })
 
     return () => {
+      for (const node of d3Nodes) {
+        if (node.x != null && node.y != null) {
+          positionsRef.current.set(node.id, { x: node.x, y: node.y })
+        }
+      }
       simulation.stop()
+      simulationRef.current = null
       svg.on(".zoom", null)
       svg.on("click", null)
     }
@@ -346,19 +362,23 @@ export function GraphCanvas({
     }
   }, [searchQuery, neighborhood, selectedNodeId])
 
-  // Resize observer
+  // Resize observer — recenter the existing simulation without rebuilding
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
     const observer = new ResizeObserver(() => {
-      const cleanup = renderGraph()
-      return () => cleanup?.()
+      const sim = simulationRef.current
+      if (!sim) return
+      const width = container.clientWidth
+      const height = container.clientHeight
+      sim.force("center", d3.forceCenter(width / 2, height / 2))
+      sim.alpha(0.3).restart()
     })
 
     observer.observe(container)
     return () => observer.disconnect()
-  }, [renderGraph])
+  }, [])
 
   return (
     <div
