@@ -54,6 +54,24 @@ export interface Neighborhood {
   edges: GraphEdge[]
 }
 
+export interface Contribution {
+  id: string
+  title: string
+  role: string | null
+  co_author_name: string | null
+}
+
+export interface PublicationRef {
+  id: string
+  title: string
+  author_name: string | null
+}
+
+export interface PersonRef {
+  id: string
+  name: string
+}
+
 // ---- API functions ----
 
 export async function searchApi(query: string): Promise<SearchResult[]> {
@@ -92,6 +110,36 @@ export async function fetchGraphTraversal(
   const response = await fetch(`/api/graph/?${params}`)
   if (!response.ok) {
     throw new Error(`Graph traversal failed: ${response.statusText}`)
+  }
+  return response.json()
+}
+
+export async function fetchPersonContributions(
+  personId: string
+): Promise<Contribution[]> {
+  const response = await fetch(`/api/person/${encodeURIComponent(personId)}/contributions`)
+  if (!response.ok) {
+    throw new Error(`Failed to fetch contributions: ${response.statusText}`)
+  }
+  return response.json()
+}
+
+export async function fetchOrganizationPublications(
+  orgId: string
+): Promise<PublicationRef[]> {
+  const response = await fetch(`/api/organization/${encodeURIComponent(orgId)}/publications`)
+  if (!response.ok) {
+    throw new Error(`Failed to fetch publications: ${response.statusText}`)
+  }
+  return response.json()
+}
+
+export async function fetchOrganizationMembers(
+  orgId: string
+): Promise<PersonRef[]> {
+  const response = await fetch(`/api/organization/${encodeURIComponent(orgId)}/members`)
+  if (!response.ok) {
+    throw new Error(`Failed to fetch members: ${response.statusText}`)
   }
   return response.json()
 }
