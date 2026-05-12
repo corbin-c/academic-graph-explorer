@@ -1,10 +1,16 @@
 # Academic Graph Explorer
 
-A web application for exploring relationships between academic contributions, people, publications, projects, institutions, datasets, and other scholarly entities.
+Academic Graph Explorer is an interactive tool for discovering and navigating relationships across scholarly data.
+
+It models researchers, publications and institutions as a connected graph that can be explored interactively.
 
 The application uses **RDF and SPARQL as its primary data layer**. Rather than importing the entire dataset into the application, it queries semantic-web data sources dynamically and exposes a small, domain-oriented API for exploring the resulting graph.
 
 The central interaction is **progressive graph exploration**: a user starts from an academic entity and explores its surrounding network of relationships. The application retrieves a bounded neighborhood of the graph, presents it visually, and allows the user to expand the graph by exploring connected entities.
+
+> The current implementation uses [IdRef](https://www.idref.fr/) as its primary data source, providing a focused starting point within the French scholarly information ecosystem.
+
+![Screenshot](./screenshot.png)
 
 ## Architecture
 
