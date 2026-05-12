@@ -2,6 +2,7 @@ import { User, Building2 } from "lucide-react"
 import type { SearchResult } from "@/lib/api"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { SearchResultCard } from "@/components/search-result-card"
 
 interface SearchResultsProps {
   results: SearchResult[] | undefined
@@ -35,17 +36,18 @@ export function SearchResults({ results, isLoading, error }: SearchResultsProps)
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               {result.type === "person" ? (
-                <User className="h-4 w-4 text-muted-foreground" />
+                <User className="h-4 w-4 text-muted-foreground shrink-0" />
               ) : (
-                <Building2 className="h-4 w-4 text-muted-foreground" />
+                <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
               )}
               {result.name}
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="pt-0 space-y-3">
             <Badge variant={result.type === "person" ? "default" : "secondary"}>
               {result.type}
             </Badge>
+            <SearchResultCard result={result} />
           </CardContent>
         </Card>
       ))}
