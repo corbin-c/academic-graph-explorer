@@ -1,7 +1,11 @@
 import { useState, useEffect, useMemo } from "react"
 import { useParams, useSearchParams, Link } from "react-router-dom"
 import { ArrowLeft, Search } from "lucide-react"
-import { fetchGraphTraversal, type Neighborhood, type GraphEntity } from "@/lib/api"
+import {
+  fetchGraphTraversal,
+  type Neighborhood,
+  type GraphEntity,
+} from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,8 +17,7 @@ export function GraphPage() {
   const { entityId } = useParams<{ entityId: string }>()
   const [searchParams] = useSearchParams()
   const entityType = (searchParams.get("type") ?? "person") as
-    | "person"
-    | "organization"
+    "person" | "organization"
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [neighborhood, setNeighborhood] = useState<Neighborhood | undefined>()
@@ -28,7 +31,8 @@ export function GraphPage() {
   const matchCount = useMemo(() => {
     if (!searchQuery.trim() || !neighborhood) return 0
     const q = searchQuery.toLowerCase()
-    return neighborhood.nodes.filter((n) => n.label.toLowerCase().includes(q)).length
+    return neighborhood.nodes.filter((n) => n.label.toLowerCase().includes(q))
+      .length
   }, [searchQuery, neighborhood])
 
   // Initial graph load
@@ -120,7 +124,10 @@ export function GraphPage() {
                 <p className="text-sm text-muted-foreground">{error.message}</p>
                 <Link
                   to="/"
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-2")}
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "mt-2"
+                  )}
                 >
                   Back to search
                 </Link>
@@ -174,7 +181,7 @@ export function GraphPage() {
             onChange={(e) => setExpandDepth(Number(e.target.value))}
             className="h-8 shrink-0 rounded-none border border-border bg-background px-2 text-xs"
           >
-            {[1, 2, 3, 4, 5].map((d) => (
+            {[1, 2].map((d) => (
               <option key={d} value={d}>
                 {d}
               </option>
