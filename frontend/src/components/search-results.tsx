@@ -10,18 +10,18 @@ interface SearchResultsProps {
   error: Error | null
 }
 
-export function SearchResults({ results, isLoading, error }: SearchResultsProps) {
+export function SearchResults({
+  results,
+  isLoading,
+  error,
+}: SearchResultsProps) {
   if (isLoading) {
-    return (
-      <p className="text-muted-foreground text-center">Searching...</p>
-    )
+    return <p className="text-center text-muted-foreground">Searching...</p>
   }
 
   if (error) {
     return (
-      <p className="text-destructive text-center">
-        Error: {error.message}
-      </p>
+      <p className="text-center text-destructive">Error: {error.message}</p>
     )
   }
 
@@ -34,19 +34,23 @@ export function SearchResults({ results, isLoading, error }: SearchResultsProps)
       {results.map((result) => (
         <Card key={result.id}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              {result.type === "person" ? (
-                <User className="h-4 w-4 text-muted-foreground shrink-0" />
-              ) : (
-                <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-              )}
-              {result.name}
+            <CardTitle className="flex w-full items-center justify-between text-base">
+              <div className="flex items-center gap-2">
+                {result.type === "person" ? (
+                  <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+                ) : (
+                  <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                )}
+                {result.name}
+              </div>
+              <Badge
+                variant={result.type === "person" ? "default" : "secondary"}
+              >
+                {result.type}
+              </Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 space-y-3">
-            <Badge variant={result.type === "person" ? "default" : "secondary"}>
-              {result.type}
-            </Badge>
+          <CardContent className="space-y-3 pt-0">
             <SearchResultCard result={result} />
           </CardContent>
         </Card>

@@ -1,9 +1,18 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Info, GitBranch, Check, Loader2, BookOpen, Users } from "lucide-react"
+import { Link } from "react-router-dom"
+import {
+  Info,
+  GitBranch,
+  Check,
+  Loader2,
+  BookOpen,
+  Users,
+  ArrowRight,
+  Building2,
+} from "lucide-react"
 import {
   fetchEntityDetail,
-  fetchGraphTraversal,
   fetchPersonContributions,
   fetchOrganizationPublications,
   fetchOrganizationMembers,
@@ -13,7 +22,8 @@ import {
   type PersonRef,
   type SearchResult,
 } from "@/lib/api"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { Button, buttonVariants } from "@/components/ui/button"
 
 interface SearchResultCardProps {
   result: SearchResult
@@ -21,14 +31,20 @@ interface SearchResultCardProps {
 
 function DetailContent({ detail }: { detail: EntityDetail }) {
   return (
-    <div className="mt-2 space-y-1">
-      {detail.note && (
-        <p className="text-sm text-muted-foreground">{detail.note}</p>
-      )}
+    <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+      {detail.note && <p>{detail.note}</p>}
       {"organizations" in detail && detail.organizations.length > 0 && (
-        <p className="text-sm">
-          Organizations:{" "}
-          {detail.organizations.map((o) => o.name).join(", ")}
+        <p className="mt-2">
+          Organizations:
+          <ul>
+            {detail.organizations.map((o) => (
+              <li key={o.id} className="flex items-center gap-1">
+                <Building2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+
+                {o.name}
+              </li>
+            ))}
+          </ul>
         </p>
       )}
     </div>
@@ -37,7 +53,6 @@ function DetailContent({ detail }: { detail: EntityDetail }) {
 
 export function SearchResultCard({ result }: SearchResultCardProps) {
   const [detailRequested, setDetailRequested] = useState(false)
-  const [graphRequested, setGraphRequested] = useState(false)
   const [contributionsRequested, setContributionsRequested] = useState(false)
   const [publicationsRequested, setPublicationsRequested] = useState(false)
   const [membersRequested, setMembersRequested] = useState(false)
@@ -46,12 +61,6 @@ export function SearchResultCard({ result }: SearchResultCardProps) {
     queryKey: ["detail", result.id, result.type],
     queryFn: () => fetchEntityDetail(result.id, result.type),
     enabled: detailRequested,
-  })
-
-  const graphQuery = useQuery({
-    queryKey: ["graph", result.id, result.type],
-    queryFn: () => fetchGraphTraversal(result.id, result.type),
-    enabled: graphRequested,
   })
 
   const contributionsQuery = useQuery<Contribution[]>({
@@ -91,75 +100,66 @@ export function SearchResultCard({ result }: SearchResultCardProps) {
           Details
         </Button>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setGraphRequested(true)}
-          disabled={graphQuery.isLoading || graphQuery.isSuccess}
+        <Link
+          to={`/graph/${encodeURIComponent(result.id)}?type=${result.type}`}
+          className={cn(buttonVariants({ variant: "outline", size: "lg" }), "ml-auto")}
         >
-          {graphQuery.isLoading ? (
-            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-          ) : graphQuery.isSuccess ? (
-            <Check className="mr-1 h-3 w-3" />
-          ) : (
-            <GitBranch className="mr-1 h-3 w-3" />
-          )}
-          Graph (depth=1)
-        </Button>
+          Explore Graph <ArrowRight className="ml-2 h-4 w-4" />
+        </Link>
 
-        {result.type === "person" && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setContributionsRequested(true)}
-            disabled={contributionsQuery.isLoading || contributionsQuery.isSuccess}
-          >
-            {contributionsQuery.isLoading ? (
-              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-            ) : contributionsQuery.isSuccess ? (
-              <Check className="mr-1 h-3 w-3" />
-            ) : (
-              <BookOpen className="mr-1 h-3 w-3" />
-            )}
-            Contributions
-          </Button>
-        )}
-
-        {result.type === "organization" && (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPublicationsRequested(true)}
-              disabled={publicationsQuery.isLoading || publicationsQuery.isSuccess}
-            >
-              {publicationsQuery.isLoading ? (
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              ) : publicationsQuery.isSuccess ? (
-                <Check className="mr-1 h-3 w-3" />
-              ) : (
-                <BookOpen className="mr-1 h-3 w-3" />
-              )}
-              Publications
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setMembersRequested(true)}
-              disabled={membersQuery.isLoading || membersQuery.isSuccess}
-            >
-              {membersQuery.isLoading ? (
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              ) : membersQuery.isSuccess ? (
-                <Check className="mr-1 h-3 w-3" />
-              ) : (
-                <Users className="mr-1 h-3 w-3" />
-              )}
-              Members
-            </Button>
-          </>
-        )}
+        {/* {result.type === "person" && ( */}
+        {/*   <Button */}
+        {/*     variant="outline" */}
+        {/*     size="sm" */}
+        {/*     onClick={() => setContributionsRequested(true)} */}
+        {/*     disabled={contributionsQuery.isLoading || contributionsQuery.isSuccess} */}
+        {/*   > */}
+        {/*     {contributionsQuery.isLoading ? ( */}
+        {/*       <Loader2 className="mr-1 h-3 w-3 animate-spin" /> */}
+        {/*     ) : contributionsQuery.isSuccess ? ( */}
+        {/*       <Check className="mr-1 h-3 w-3" /> */}
+        {/*     ) : ( */}
+        {/*       <BookOpen className="mr-1 h-3 w-3" /> */}
+        {/*     )} */}
+        {/*     Contributions */}
+        {/*   </Button> */}
+        {/* )} */}
+        {/**/}
+        {/* {result.type === "organization" && ( */}
+        {/*   <> */}
+        {/*     <Button */}
+        {/*       variant="outline" */}
+        {/*       size="sm" */}
+        {/*       onClick={() => setPublicationsRequested(true)} */}
+        {/*       disabled={publicationsQuery.isLoading || publicationsQuery.isSuccess} */}
+        {/*     > */}
+        {/*       {publicationsQuery.isLoading ? ( */}
+        {/*         <Loader2 className="mr-1 h-3 w-3 animate-spin" /> */}
+        {/*       ) : publicationsQuery.isSuccess ? ( */}
+        {/*         <Check className="mr-1 h-3 w-3" /> */}
+        {/*       ) : ( */}
+        {/*         <BookOpen className="mr-1 h-3 w-3" /> */}
+        {/*       )} */}
+        {/*       Publications */}
+        {/*     </Button> */}
+        {/**/}
+        {/*     <Button */}
+        {/*       variant="outline" */}
+        {/*       size="sm" */}
+        {/*       onClick={() => setMembersRequested(true)} */}
+        {/*       disabled={membersQuery.isLoading || membersQuery.isSuccess} */}
+        {/*     > */}
+        {/*       {membersQuery.isLoading ? ( */}
+        {/*         <Loader2 className="mr-1 h-3 w-3 animate-spin" /> */}
+        {/*       ) : membersQuery.isSuccess ? ( */}
+        {/*         <Check className="mr-1 h-3 w-3" /> */}
+        {/*       ) : ( */}
+        {/*         <Users className="mr-1 h-3 w-3" /> */}
+        {/*       )} */}
+        {/*       Members */}
+        {/*     </Button> */}
+        {/*   </> */}
+        {/* )} */}
       </div>
 
       {detailQuery.isError && (
