@@ -19,10 +19,11 @@ _FIXED_PARAMS = {
 
 
 def _sanitize_query(query: str) -> str:
-    """Strip accents and lowercase for SOLR search."""
+    """Strip accents, lowercase, and replace spaces with AND for SOLR search."""
     normalized = unicodedata.normalize("NFKD", query)
     ascii_only = normalized.encode("ASCII", "ignore")
-    return ascii_only.decode().lower()
+    lowered = ascii_only.decode().lower()
+    return lowered.replace(" ", " AND ")
 
 
 class IdRefSearchClient:
@@ -31,7 +32,7 @@ class IdRefSearchClient:
     async def search(self, query: str) -> list[dict]:
         """Execute a SOLR search and return the raw docs array."""
         sanitized = _sanitize_query(query)
-        params = {**_FIXED_PARAMS, "q": f"all:{sanitized}"}
+        params = {**_FIXED_PARAMS, "q": f"all:({sanitized})"}
         url = f"{SOLR_URL}?{urllib.parse.urlencode(params)}"
 
         async with httpx.AsyncClient() as client:
