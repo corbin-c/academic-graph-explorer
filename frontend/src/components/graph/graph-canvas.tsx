@@ -19,6 +19,8 @@ interface D3Node extends d3.SimulationNodeDatum {
 interface D3Link extends d3.SimulationLinkDatum<D3Node> {
   source: string | D3Node
   target: string | D3Node
+  type: string
+  targetLabel: string
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -88,7 +90,18 @@ export function GraphCanvas({
       .map((e) => ({
         source: e.source,
         target: e.target,
+        type: e.type,
+        targetLabel: nodeMap.get(e.target)?.label ?? e.target,
       }))
+
+    // Compute degree (edge count) per node for sizing
+    const degreeMap = new Map<string, number>()
+    for (const e of d3Links) {
+      const sId = typeof e.source === "string" ? e.source : (e.source as D3Node).id
+      const tId = typeof e.target === "string" ? e.target : (e.target as D3Node).id
+      degreeMap.set(sId, (degreeMap.get(sId) ?? 0) + 1)
+      degreeMap.set(tId, (degreeMap.get(tId) ?? 0) + 1)
+    }
 
     // Simulation
     const simulation = d3
@@ -102,7 +115,12 @@ export function GraphCanvas({
       )
       .force("charge", d3.forceManyBody().strength(-350))
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collision", d3.forceCollide(35))
+      .force("collision", d3.forceCollide<D3Node>().radius((d) => {
+        const base = d.isCenter ? 16 : (TYPE_RADIUS[d.type] ?? 7)
+        const deg = degreeMap.get(d.id) ?? 0
+        const scale = deg <= 1 ? 1 : Math.min(1 + (deg - 1) * 0.15, 3)
+        return base * scale + 20
+      }))
 
     // Zoom behavior
     const g = svg.append("g")
@@ -136,6 +154,21 @@ export function GraphCanvas({
       .data(d3Links)
       .join("line")
 
+    // Edge tooltips
+    link.append("title").text((d) => `${d.type} → ${d.targetLabel}`)
+
+    // Wider invisible hover target for easier interaction
+    const linkHitArea = g
+      .append("g")
+      .selectAll<SVGLineElement, D3Link>("line")
+      .data(d3Links)
+      .join("line")
+      .attr("stroke", "transparent")
+      .attr("stroke-width", 12)
+      .attr("cursor", "default")
+
+    linkHitArea.append("title").text((d) => `${d.type} → ${d.targetLabel}`)
+
     // Node groups
     const nodeG = g
       .append("g")
@@ -148,7 +181,12 @@ export function GraphCanvas({
     // Node circles
     nodeG
       .append("circle")
-      .attr("r", (d) => (d.isCenter ? 16 : (TYPE_RADIUS[d.type] ?? 7)))
+      .attr("r", (d) => {
+        const base = d.isCenter ? 16 : (TYPE_RADIUS[d.type] ?? 7)
+        const deg = degreeMap.get(d.id) ?? 0
+        const scale = deg <= 1 ? 1 : Math.min(1 + (deg - 1) * 0.15, 3)
+        return base * scale
+      })
       .attr(
         "fill",
         (d) => TYPE_COLORS[d.type] ?? "var(--color-muted-foreground)"
@@ -203,6 +241,12 @@ export function GraphCanvas({
         .attr("x2", (d) => (d.target as D3Node).x!)
         .attr("y2", (d) => (d.target as D3Node).y!)
 
+      linkHitArea
+        .attr("x1", (d) => (d.source as D3Node).x!)
+        .attr("y1", (d) => (d.source as D3Node).y!)
+        .attr("x2", (d) => (d.target as D3Node).x!)
+        .attr("y2", (d) => (d.target as D3Node).y!)
+
       nodeG.attr("transform", (d) => `translate(${d.x},${d.y})`)
     })
 
@@ -244,24 +288,33 @@ export function GraphCanvas({
     const q = searchQuery.trim().toLowerCase()
 
     if (!q) {
-      // Reset to type colors
-      svg
-        .selectAll<SVGCircleElement, D3Node>(".graph-node circle")
-        .attr("fill", (d) => TYPE_COLORS[d.type] ?? "var(--color-muted-foreground)")
+      // Reset glow for non-selected nodes
+      svg.selectAll<SVGCircleElement, D3Node>(".graph-node circle").each(function (d) {
+        if (d.id === selectedNodeId) return
+        const circle = d3.select(this)
+        circle.attr("stroke", "transparent")
+        circle.attr("stroke-width", 0)
+        circle.style("filter", "none")
+      })
       return
     }
 
     const matchedPositions: Array<{ x: number; y: number }> = []
 
-    svg
-      .selectAll<SVGCircleElement, D3Node>(".graph-node circle")
-      .attr("fill", (d) => {
-        if (d.label.toLowerCase().includes(q)) {
-          matchedPositions.push({ x: d.x ?? 0, y: d.y ?? 0 })
-          return "var(--emerald)"
-        }
-        return TYPE_COLORS[d.type] ?? "var(--color-muted-foreground)"
-      })
+    svg.selectAll<SVGCircleElement, D3Node>(".graph-node circle").each(function (d) {
+      if (d.id === selectedNodeId) return // don't override selection glow
+      const circle = d3.select(this)
+      if (d.label.toLowerCase().includes(q)) {
+        matchedPositions.push({ x: d.x ?? 0, y: d.y ?? 0 })
+        circle.attr("stroke", "var(--emerald)")
+        circle.attr("stroke-width", 3)
+        circle.style("filter", "drop-shadow(0 0 8px var(--emerald))")
+      } else {
+        circle.attr("stroke", "transparent")
+        circle.attr("stroke-width", 0)
+        circle.style("filter", "none")
+      }
+    })
 
     if (matchedPositions.length > 0 && zoomRef.current) {
       const w = containerRef.current!.clientWidth
@@ -291,7 +344,7 @@ export function GraphCanvas({
             .translate(-centerX, -centerY),
         )
     }
-  }, [searchQuery, neighborhood])
+  }, [searchQuery, neighborhood, selectedNodeId])
 
   // Resize observer
   useEffect(() => {

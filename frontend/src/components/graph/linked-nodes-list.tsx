@@ -27,7 +27,7 @@ export function LinkedNodesList({
   edges,
   onSelectNode,
 }: LinkedNodesListProps) {
-  const grouped = useMemo(() => {
+  const { grouped, edgeTypesByTarget } = useMemo(() => {
     const linkedIds = new Set<string>()
     for (const edge of edges) {
       if (edge.source === selectedNodeId) linkedIds.add(edge.target)
@@ -41,7 +41,20 @@ export function LinkedNodesList({
       if (!groups[node.type]) groups[node.type] = []
       groups[node.type].push(node)
     }
-    return groups
+
+    // Build edge type info for each linked node
+    const edgeTypesByTarget = new Map<string, string[]>()
+    for (const edge of edges) {
+      const linkedId = edge.source === selectedNodeId ? edge.target
+        : edge.target === selectedNodeId ? edge.source
+        : null
+      if (linkedId && edge.type) {
+        if (!edgeTypesByTarget.has(linkedId)) edgeTypesByTarget.set(linkedId, [])
+        edgeTypesByTarget.get(linkedId)!.push(edge.type)
+      }
+    }
+
+    return { grouped: groups, edgeTypesByTarget }
   }, [selectedNodeId, nodes, edges])
 
   const entries = Object.entries(grouped)
@@ -72,6 +85,11 @@ export function LinkedNodesList({
                   >
                     {node.label}
                   </button>
+                  {edgeTypesByTarget.get(node.id)?.map((relType, j) => (
+                    <div key={j} className="pl-7 text-xs text-muted-foreground/60">
+                      {relType}
+                    </div>
+                  ))}
                 </li>
               ))}
             </ul>
