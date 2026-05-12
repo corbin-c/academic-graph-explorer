@@ -17,10 +17,10 @@ function resolve(ident: Identifier): { label: string; url: string } | null {
     return { label: "DOI", url: v }
   }
   // BNF ARK
-  if (v.includes("ark.bnf.fr")) {
+  if (v.includes("bnf.fr")) {
     return { label: "BNF", url: v }
   }
-  if (v.includes("ark:/")) {
+  if (v.startsWith("ark:/")) {
     return { label: "BNF", url: `https://catalogue.bnf.fr/${v}` }
   }
   // IdRef

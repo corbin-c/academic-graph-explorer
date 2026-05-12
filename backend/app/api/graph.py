@@ -23,7 +23,6 @@ async def traverse_graph(
         ..., description="Entity type: person, organization, or publication"
     ),
     depth: int = Query(2, ge=1, le=10, description="Number of hops from root"),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum nodes returned"),
     client: IdRefSparqlClient = Depends(get_idref_client),
 ):
     """Progressive graph exploration starting from a root entity.
@@ -42,7 +41,7 @@ async def traverse_graph(
     traverser = GraphTraverser(client)
 
     try:
-        return await traverser.traverse(root, entity_type, depth, limit)
+        return await traverser.traverse(root, entity_type, depth)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except SparqlQueryError as e:

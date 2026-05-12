@@ -366,8 +366,6 @@ export interface operations {
                 type: string;
                 /** @description Number of hops from root */
                 depth?: number;
-                /** @description Maximum nodes returned */
-                limit?: number;
             };
             header?: never;
             path?: never;

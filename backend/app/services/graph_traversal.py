@@ -146,7 +146,6 @@ class GraphTraverser:
         root_id: str,
         root_type: EntityType,
         max_depth: int,
-        max_nodes: int,
     ) -> Neighborhood:
         """BFS traversal returning a Neighborhood of nodes and edges."""
         root_uri = normalize_idref_id(root_id)
@@ -174,9 +173,6 @@ class GraphTraverser:
 
             nodes[current_id] = entity
 
-            if len(nodes) >= max_nodes:
-                break
-
             # ── Inline relationships ────────────────────────────
             if current_type in _INLINE_RELATIONS:
                 neighbor_type, binding_key, role_fallback = _INLINE_RELATIONS[
@@ -196,10 +192,7 @@ class GraphTraverser:
                     edges[(edge.source, edge.target, edge.type)] = edge
                     if neighbor_id not in visited:
                         visited.add(neighbor_id)
-                        if len(nodes) < max_nodes:
-                            frontier.append(
-                                (neighbor_id, neighbor_type, current_depth + 1)
-                            )
+                        frontier.append((neighbor_id, neighbor_type, current_depth + 1))
 
             # ── Additional relationship queries ─────────────────
             if current_depth < max_depth and current_type in _ADDITIONAL_RELATIONS:
@@ -235,10 +228,9 @@ class GraphTraverser:
                         edges[(edge.source, edge.target, edge.type)] = edge
                         if neighbor_id not in visited:
                             visited.add(neighbor_id)
-                            if len(nodes) < max_nodes:
-                                frontier.append(
-                                    (neighbor_id, neighbor_type, current_depth + 1)
-                                )
+                            frontier.append(
+                                (neighbor_id, neighbor_type, current_depth + 1)
+                            )
 
         if root_uri not in nodes:
             raise ValueError(f"Could not resolve root entity: {root_uri}")

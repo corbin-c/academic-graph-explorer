@@ -46,7 +46,7 @@ export function GraphPage() {
   async function handleExpand(nodeId: string, type: string) {
     setExpandingNodeId(nodeId)
     try {
-      const newNh = await fetchGraphTraversal(nodeId, type, expandDepth, 50)
+      const newNh = await fetchGraphTraversal(nodeId, type, expandDepth)
       setNeighborhood((prev) => {
         if (!prev) return newNh
         const existingIds = new Set(prev.nodes.map((n) => n.id))

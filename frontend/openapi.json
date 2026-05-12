@@ -69,20 +69,6 @@
               "title": "Depth"
             },
             "description": "Number of hops from root"
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 1000,
-              "minimum": 1,
-              "description": "Maximum nodes returned",
-              "default": 100,
-              "title": "Limit"
-            },
-            "description": "Maximum nodes returned"
           }
         ],
         "responses": {
