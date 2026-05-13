@@ -1,5 +1,6 @@
 import { User, Building2 } from "lucide-react"
 import type { SearchResult } from "@/lib/api"
+import { Link } from "react-router-dom"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { SearchResultCard } from "@/components/search-result-card"
@@ -29,26 +30,26 @@ export function SearchResults({
     return (
       <p>
         Try it:{" "}
-        <a
+        <Link
           className="hover:underline"
-          href="/graph/056802315?type=person&depth=2"
+          to="/graph/056802315?type=person&depth=2"
         >
           Didier Veillon
-        </a>{" "}
+        </Link>{" "}
         |{" "}
-        <a
+        <Link
           className="hover:underline"
-          href="/graph/227816196?type=organization&depth=2"
+          to="/graph/227816196?type=organization&depth=2"
         >
           PRISM Lab
-        </a>{" "}
+        </Link>{" "}
         |{" "}
-        <a
+        <Link
           className="hover:underline"
-          href="/graph/139753753?type=person&depth=2"
+          to="/graph/139753753?type=person&depth=2"
         >
           Marin Dacos
-        </a>
+        </Link>
       </p>
     )
   }
