@@ -49,16 +49,18 @@ The backend is deliberately thin. It does not attempt to become a general-purpos
 
 ## API
 
-The API is organized around three primary operations:
+The API is organized around five primary operations:
 
-- **Entities** — retrieve information about a specific scholarly entity.
+- **Person** — retrieve information about a specific person.
+- **Publication** — retrieve information about a specific publication.
+- **Organization** — retrieve information about a specific instituion.
 - **Search** — find entities matching a user's query.
 - **Graph** — traverse and retrieve the relationships surrounding an entity.
 
 For example:
 
 ```text
-GET /api/entities/{id}
+GET /api/person/{id}
 GET /api/search?q=...
 GET /api/graph/{id}?depth=2
 ```
@@ -78,7 +80,7 @@ api/
 domain/
     application-level entities and graph models
 
-sparql/
+sources/
     communication with RDF/SPARQL sources
 ```
 
@@ -86,7 +88,7 @@ The `api` layer handles HTTP concerns.
 
 The `domain` layer defines the concepts the application works with independently of the underlying data source.
 
-The `sparql` layer handles SPARQL queries and communication with external RDF endpoints.
+The `sources` layer handles SPARQL queries and communication with external RDF endpoints.
 
 This separation means that the frontend does not need to understand RDF, and the rest of the backend does not need to depend directly on FastAPI or a particular SPARQL provider.
 
