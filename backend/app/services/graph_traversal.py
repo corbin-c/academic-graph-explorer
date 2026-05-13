@@ -53,6 +53,7 @@ class RelationSpec:
     binding_key: str
     role_key: str | None
     role_fallback: str | None
+    source_key: str | None = None
 
 
 # Additional relationship queries needed beyond the entity query.
@@ -62,7 +63,12 @@ _ADDITIONAL_RELATIONS: dict[EntityType, list[RelationSpec]] = {
             EntityType.PUBLICATION, PERSON_CONTRIBUTIONS, "doc", "role", "authorOf"
         ),
         RelationSpec(
-            EntityType.PERSON, PERSON_CONTRIBUTIONS, "author", None, "coAuthorOf"
+            EntityType.PERSON,
+            PERSON_CONTRIBUTIONS,
+            "contributor",
+            "contributor_role",
+            "contributor",
+            source_key="doc",
         ),
     ],
     EntityType.ORGANIZATION: [
@@ -72,13 +78,13 @@ _ADDITIONAL_RELATIONS: dict[EntityType, list[RelationSpec]] = {
         RelationSpec(
             EntityType.PUBLICATION, ORGANIZATION_PUBLICATIONS, "doc", None, "produced"
         ),
-        # Also extract authors linked to the organization's publications
         RelationSpec(
             EntityType.PERSON,
             ORGANIZATION_PUBLICATIONS,
-            "author",
-            None,
-            "affiliatedAuthor",
+            "contributor",
+            "contributor_role",
+            "contributor",
+            source_key="doc",
         ),
     ],
     EntityType.PUBLICATION: [
@@ -151,6 +157,24 @@ def _extract_neighbor_ids(
                 role = b.get(role_key, {}).get("value") if role_key else None
                 ids[nid] = role
     return ids
+
+
+def _extract_pairs(
+    bindings: list[dict],
+    source_key: str,
+    target_key: str,
+    role_key: str | None = None,
+) -> list[tuple[str, str, str | None]]:
+    """Return [(source_id, target_id, role)] deduped by (source, target)."""
+    pairs: dict[tuple[str, str], str | None] = {}
+    for b in bindings:
+        src = b.get(source_key, {}).get("value")
+        tgt = b.get(target_key, {}).get("value")
+        if not src or not tgt:
+            continue
+        role = b.get(role_key, {}).get("value") if role_key else None
+        pairs.setdefault((src, tgt), role)
+    return [(s, t, r) for (s, t), r in pairs.items()]
 
 
 def _infer_edge_role(
@@ -382,6 +406,8 @@ class GraphTraverser:
             if expand and current_type in _ADDITIONAL_RELATIONS:
                 by_query: dict[str, list[RelationSpec]] = {}
                 for spec in _ADDITIONAL_RELATIONS[current_type]:
+                    if spec.query == PUBLICATION_PERSONS and current_id != root_uri:
+                        continue
                     rq = spec.query.replace(
                         _PARAM_NAMES[current_type], f"<{current_id}>"
                     )
@@ -403,25 +429,60 @@ class GraphTraverser:
                 for rq, specs in by_query.items():
                     rel_bindings = rel_results[rq]
                     for spec in specs:
-                        neighbor_ids = _extract_neighbor_ids(
-                            rel_bindings, spec.binding_key, spec.role_key
-                        )
-                        for neighbor_id, role in neighbor_ids.items():
-                            if neighbor_id == current_id:
-                                continue
-                            edge_role = _infer_edge_role(
-                                current_type,
-                                spec.neighbor_type,
-                                spec.role_fallback or "relatedTo",
-                                role,
+                        if spec.source_key is not None:
+                            pairs = _extract_pairs(
+                                rel_bindings,
+                                spec.source_key,
+                                spec.binding_key,
+                                spec.role_key,
                             )
-                            add_edge_and_enqueue(
-                                current_id,
-                                neighbor_id,
-                                spec.neighbor_type,
-                                edge_role,
-                                current_depth,
+                            for src_id, neighbor_id, role in pairs:
+                                if neighbor_id == current_id:
+                                    continue
+                                edge_role = _infer_edge_role(
+                                    current_type,
+                                    spec.neighbor_type,
+                                    spec.role_fallback or "relatedTo",
+                                    role,
+                                )
+                                if src_id in discovered:
+                                    add_edge_and_enqueue(
+                                        src_id,
+                                        neighbor_id,
+                                        spec.neighbor_type,
+                                        edge_role,
+                                        current_depth + 1,
+                                    )
+                                else:
+                                    spill.append(
+                                        (
+                                            src_id,
+                                            neighbor_id,
+                                            spec.neighbor_type,
+                                            edge_role,
+                                            current_depth + 2,
+                                        )
+                                    )
+                        else:
+                            neighbor_ids = _extract_neighbor_ids(
+                                rel_bindings, spec.binding_key, spec.role_key
                             )
+                            for neighbor_id, role in neighbor_ids.items():
+                                if neighbor_id == current_id:
+                                    continue
+                                edge_role = _infer_edge_role(
+                                    current_type,
+                                    spec.neighbor_type,
+                                    spec.role_fallback or "relatedTo",
+                                    role,
+                                )
+                                add_edge_and_enqueue(
+                                    current_id,
+                                    neighbor_id,
+                                    spec.neighbor_type,
+                                    edge_role,
+                                    current_depth,
+                                )
 
         # ── Center resolution ──────────────────────────────────
         center = nodes.get(root_uri)

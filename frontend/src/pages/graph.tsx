@@ -54,7 +54,7 @@ export function GraphPage() {
   const [expandingNodeId, setExpandingNodeId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [expandDepth, setExpandDepth] = useState(
-    parseInt(searchParams.get("depth") || "1")
+    parseInt(searchParams.get("depth") || "2")
   )
   const [loadingMore, setLoadingMore] = useState(false)
   const [continuations, setContinuations] = useState<Record<string, string>>({})

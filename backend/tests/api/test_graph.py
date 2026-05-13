@@ -148,6 +148,7 @@ class TestGraphDepthTwo:
     ALICE = "http://www.idref.fr/001/id"
     ORG1 = "http://www.idref.fr/org1/id"
     PUB1 = "http://www.idref.fr/pub1/id"
+    BOB = "http://www.idref.fr/bob/id"
 
     @pytest.mark.asyncio
     async def test_person_to_pubs_via_contributions(self, async_client, httpx_mock):
@@ -234,15 +235,6 @@ class TestGraphDepthTwo:
                     ]
                 }
             },
-        )
-        # Publication persons query
-        httpx_mock.add_response(
-            url=SPARQL_ENDPOINT,
-            method="POST",
-            match_content=_query_body(
-                idref_queries.PUBLICATION_PERSONS, "$publication", self.PUB1
-            ),
-            json={"results": {"bindings": []}},
         )
         # Publication organizations query
         httpx_mock.add_response(
@@ -347,15 +339,6 @@ class TestGraphDepthTwo:
                     ]
                 }
             },
-        )
-        # Publication persons query
-        httpx_mock.add_response(
-            url=SPARQL_ENDPOINT,
-            method="POST",
-            match_content=_query_body(
-                idref_queries.PUBLICATION_PERSONS, "$publication", self.PUB1
-            ),
-            json={"results": {"bindings": []}},
         )
         # Publication organizations query
         httpx_mock.add_response(
@@ -554,88 +537,6 @@ class TestGraphDepthTwo:
         assert any(e["type"] == "author" for e in data["edges"])
 
     @pytest.mark.asyncio
-    async def test_coauthor_edge_and_self_loop_filter(self, async_client, httpx_mock):
-        """Co-author spec yields a coAuthorOf edge; the root self-loop is filtered."""
-        bob = "http://www.idref.fr/bob/id"
-
-        # Root person entity query.
-        httpx_mock.add_response(
-            url=SPARQL_ENDPOINT,
-            method="POST",
-            match_content=_query_body(idref_queries.PERSON, "$person", self.ALICE),
-            json={
-                "results": {
-                    "bindings": [
-                        {"name": {"type": "literal", "value": "Alice"}},
-                    ]
-                }
-            },
-        )
-        # Contributions: one doc, the root as a (self) author, plus a distinct co-author.
-        httpx_mock.add_response(
-            url=SPARQL_ENDPOINT,
-            method="POST",
-            match_content=_query_body(
-                idref_queries.PERSON_CONTRIBUTIONS, "$person", self.ALICE
-            ),
-            json={
-                "results": {
-                    "bindings": [
-                        {
-                            "doc": {"type": "uri", "value": self.PUB1},
-                            "author": {"type": "uri", "value": self.ALICE},
-                            "author_name": {"type": "literal", "value": "Alice"},
-                        },
-                        {
-                            "doc": {"type": "uri", "value": self.PUB1},
-                            "author": {"type": "uri", "value": bob},
-                            "author_name": {"type": "literal", "value": "Bob"},
-                        },
-                    ]
-                }
-            },
-        )
-        # Publication entity query.
-        httpx_mock.add_response(
-            url=SPARQL_ENDPOINT,
-            method="POST",
-            match_content=_query_body(
-                idref_queries.PUBLICATION, "$publication", self.PUB1
-            ),
-            json={
-                "results": {
-                    "bindings": [
-                        {"title": {"type": "literal", "value": "My Paper"}},
-                    ]
-                }
-            },
-        )
-        # Co-author (Bob) person entity query.
-        httpx_mock.add_response(
-            url=SPARQL_ENDPOINT,
-            method="POST",
-            match_content=_query_body(idref_queries.PERSON, "$person", bob),
-            json={
-                "results": {
-                    "bindings": [
-                        {"name": {"type": "literal", "value": "Bob"}},
-                    ]
-                }
-            },
-        )
-
-        response = await async_client.get(
-            "/api/graph/",
-            params={"root": self.ALICE, "type": "person", "depth": 1},
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert any(
-            e["type"] == "coAuthorOf" and e["target"] == bob for e in data["edges"]
-        )
-        assert all(e["source"] != e["target"] for e in data["edges"])
-
-    @pytest.mark.asyncio
     async def test_publication_doi_populated(self, async_client, httpx_mock):
         """Publication entity binds a doi, which is surfaced on the node."""
         # Publication entity query (with doi binding).
@@ -735,6 +636,383 @@ class TestGraphDepthTwo:
         assert response.status_code == 200
         data = response.json()
         assert len(data["nodes"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_person_depth_two_expands_coauthors_through_publication(
+        self, async_client, httpx_mock
+    ):
+        """Person → publication → co-author; no collapsed coAuthorOf shortcut."""
+        # Person entity query (no inline org).
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(idref_queries.PERSON, "$person", self.ALICE),
+            json={
+                "results": {
+                    "bindings": [
+                        {"name": {"type": "literal", "value": "Alice"}},
+                    ]
+                }
+            },
+        )
+        # Contributions: the publication plus its contributor (the co-author).
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(
+                idref_queries.PERSON_CONTRIBUTIONS, "$person", self.ALICE
+            ),
+            json={
+                "results": {
+                    "bindings": [
+                        {
+                            "doc": {"type": "uri", "value": self.PUB1},
+                            "role": {"type": "literal", "value": "author"},
+                            "contributor": {"type": "uri", "value": self.BOB},
+                            "contributor_name": {"type": "literal", "value": "Bob"},
+                            "contributor_role": {"type": "literal", "value": "author"},
+                        },
+                    ]
+                }
+            },
+        )
+        # Publication entity query.
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(
+                idref_queries.PUBLICATION, "$publication", self.PUB1
+            ),
+            json={
+                "results": {
+                    "bindings": [
+                        {"title": {"type": "literal", "value": "My Paper"}},
+                    ]
+                }
+            },
+        )
+        # Publication organizations query (PUB1 is not the root, so it runs).
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(
+                idref_queries.PUBLICATION_ORGANIZATIONS, "$publication", self.PUB1
+            ),
+            json={"results": {"bindings": []}},
+        )
+        # Co-author person entity query (reached at depth 2).
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(idref_queries.PERSON, "$person", self.BOB),
+            json={
+                "results": {
+                    "bindings": [
+                        {"name": {"type": "literal", "value": "Bob"}},
+                    ]
+                }
+            },
+        )
+
+        response = await async_client.get(
+            "/api/graph/",
+            params={"root": self.ALICE, "type": "person", "depth": 2},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        edge_types = {e["type"] for e in data["edges"]}
+        assert any(
+            e["source"] == self.ALICE
+            and e["target"] == self.PUB1
+            and e["type"] == "author"
+            for e in data["edges"]
+        )
+        assert any(
+            e["source"] == self.PUB1
+            and e["target"] == self.BOB
+            and e["type"] == "author"
+            for e in data["edges"]
+        )
+        assert "coAuthorOf" not in edge_types
+
+    @pytest.mark.asyncio
+    async def test_organization_depth_two_expands_contributors_through_publication(
+        self, async_client, httpx_mock
+    ):
+        """Organization → publication → person; no affiliatedAuthor shortcut."""
+        # Organization entity query.
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(
+                idref_queries.ORGANIZATION, "$organization", self.ORG1
+            ),
+            json={
+                "results": {
+                    "bindings": [
+                        {"name": {"type": "literal", "value": "CNRS"}},
+                    ]
+                }
+            },
+        )
+        # Organization members query (empty).
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(
+                idref_queries.ORGANIZATION_MEMBERS, "$organization", self.ORG1
+            ),
+            json={"results": {"bindings": []}},
+        )
+        # Organization publications: publication + its contributor.
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(
+                idref_queries.ORGANIZATION_PUBLICATIONS, "$organization", self.ORG1
+            ),
+            json={
+                "results": {
+                    "bindings": [
+                        {
+                            "doc": {"type": "uri", "value": self.PUB1},
+                            "contributor": {"type": "uri", "value": self.BOB},
+                            "contributor_name": {"type": "literal", "value": "Bob"},
+                            "contributor_role": {"type": "literal", "value": "author"},
+                        },
+                    ]
+                }
+            },
+        )
+        # Publication entity query.
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(
+                idref_queries.PUBLICATION, "$publication", self.PUB1
+            ),
+            json={
+                "results": {
+                    "bindings": [
+                        {"title": {"type": "literal", "value": "My Paper"}},
+                    ]
+                }
+            },
+        )
+        # Publication organizations query.
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(
+                idref_queries.PUBLICATION_ORGANIZATIONS, "$publication", self.PUB1
+            ),
+            json={"results": {"bindings": []}},
+        )
+        # Contributor person entity query (reached at depth 2).
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(idref_queries.PERSON, "$person", self.BOB),
+            json={
+                "results": {
+                    "bindings": [
+                        {"name": {"type": "literal", "value": "Bob"}},
+                    ]
+                }
+            },
+        )
+
+        response = await async_client.get(
+            "/api/graph/",
+            params={"root": self.ORG1, "type": "organization", "depth": 2},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        edge_types = {e["type"] for e in data["edges"]}
+        assert any(
+            e["source"] == self.ORG1
+            and e["target"] == self.PUB1
+            and e["type"] == "produced"
+            for e in data["edges"]
+        )
+        assert any(
+            e["source"] == self.PUB1
+            and e["target"] == self.BOB
+            and e["type"] == "author"
+            for e in data["edges"]
+        )
+        assert "affiliatedAuthor" not in edge_types
+
+    @pytest.mark.asyncio
+    async def test_publication_root_gets_persons(self, async_client, httpx_mock):
+        """A publication root still resolves its persons via publication_persons."""
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(
+                idref_queries.PUBLICATION, "$publication", self.PUB1
+            ),
+            json={
+                "results": {
+                    "bindings": [
+                        {"title": {"type": "literal", "value": "My Paper"}},
+                    ]
+                }
+            },
+        )
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(
+                idref_queries.PUBLICATION_PERSONS, "$publication", self.PUB1
+            ),
+            json={
+                "results": {
+                    "bindings": [
+                        {
+                            "person": {"type": "uri", "value": self.BOB},
+                            "person_name": {"type": "literal", "value": "Bob"},
+                            "person_role": {"type": "literal", "value": "author"},
+                        },
+                    ]
+                }
+            },
+        )
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(
+                idref_queries.PUBLICATION_ORGANIZATIONS, "$publication", self.PUB1
+            ),
+            json={"results": {"bindings": []}},
+        )
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(idref_queries.PERSON, "$person", self.BOB),
+            json={
+                "results": {
+                    "bindings": [
+                        {"name": {"type": "literal", "value": "Bob"}},
+                    ]
+                }
+            },
+        )
+
+        response = await async_client.get(
+            "/api/graph/",
+            params={"root": self.PUB1, "type": "publication", "depth": 1},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert any(
+            e["source"] == self.PUB1
+            and e["target"] == self.BOB
+            and e["type"] == "author"
+            for e in data["edges"]
+        )
+
+    @pytest.mark.asyncio
+    async def test_publication_reached_not_root_skips_person_query(
+        self, async_client, httpx_mock
+    ):
+        """A publication reached via a person does NOT issue publication_persons."""
+        # Person entity query.
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(idref_queries.PERSON, "$person", self.ALICE),
+            json={
+                "results": {
+                    "bindings": [
+                        {"name": {"type": "literal", "value": "Alice"}},
+                    ]
+                }
+            },
+        )
+        # Contributions: publication + contributor.
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(
+                idref_queries.PERSON_CONTRIBUTIONS, "$person", self.ALICE
+            ),
+            json={
+                "results": {
+                    "bindings": [
+                        {
+                            "doc": {"type": "uri", "value": self.PUB1},
+                            "role": {"type": "literal", "value": "author"},
+                            "contributor": {"type": "uri", "value": self.BOB},
+                            "contributor_name": {"type": "literal", "value": "Bob"},
+                            "contributor_role": {"type": "literal", "value": "author"},
+                        },
+                    ]
+                }
+            },
+        )
+        # Publication entity query.
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(
+                idref_queries.PUBLICATION, "$publication", self.PUB1
+            ),
+            json={
+                "results": {
+                    "bindings": [
+                        {"title": {"type": "literal", "value": "My Paper"}},
+                    ]
+                }
+            },
+        )
+        # Publication organizations query (runs).
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(
+                idref_queries.PUBLICATION_ORGANIZATIONS, "$publication", self.PUB1
+            ),
+            json={"results": {"bindings": []}},
+        )
+        # Sentinel for publication_persons — it must never be called.
+        pub_persons_body = _query_body(
+            idref_queries.PUBLICATION_PERSONS, "$publication", self.PUB1
+        )
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=pub_persons_body,
+            json={"results": {"bindings": []}},
+            is_optional=True,
+        )
+        # Contributor person entity query (reached at depth 2).
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(idref_queries.PERSON, "$person", self.BOB),
+            json={
+                "results": {
+                    "bindings": [
+                        {"name": {"type": "literal", "value": "Bob"}},
+                    ]
+                }
+            },
+        )
+
+        response = await async_client.get(
+            "/api/graph/",
+            params={"root": self.ALICE, "type": "person", "depth": 2},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert any(
+            e["source"] == self.PUB1 and e["target"] == self.BOB for e in data["edges"]
+        )
+        calls = httpx_mock.get_requests(
+            url=SPARQL_ENDPOINT, match_content=pub_persons_body
+        )
+        assert len(calls) == 0
 
 
 class TestGraphTruncation:
@@ -1093,3 +1371,112 @@ class TestGraphContinuation:
             "/api/graph/", params=self._params("does-not-exist")
         )
         assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_truncated_publication_contributors_recovered_after_resume(
+        self, async_client, httpx_mock
+    ):
+        """A spilled publication's contributors are recovered on resume."""
+        pub1 = "http://www.idref.fr/pub1/id"
+        pub2 = "http://www.idref.fr/pub2/id"
+        bob1 = "http://www.idref.fr/bob1/id"
+        bob2 = "http://www.idref.fr/bob2/id"
+
+        # Root person entity query (also serves the resume center via cache).
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(idref_queries.PERSON, "$person", self.ALICE),
+            json={
+                "results": {
+                    "bindings": [
+                        {"name": {"type": "literal", "value": "Alice"}},
+                    ]
+                }
+            },
+        )
+        # Contributions: two publications, each with a contributor.
+        httpx_mock.add_response(
+            url=SPARQL_ENDPOINT,
+            method="POST",
+            match_content=_query_body(
+                idref_queries.PERSON_CONTRIBUTIONS, "$person", self.ALICE
+            ),
+            json={
+                "results": {
+                    "bindings": [
+                        {
+                            "doc": {"type": "uri", "value": pub1},
+                            "role": {"type": "literal", "value": "author"},
+                            "contributor": {"type": "uri", "value": bob1},
+                            "contributor_name": {"type": "literal", "value": "Bob One"},
+                            "contributor_role": {"type": "literal", "value": "author"},
+                        },
+                        {
+                            "doc": {"type": "uri", "value": pub2},
+                            "role": {"type": "literal", "value": "author"},
+                            "contributor": {"type": "uri", "value": bob2},
+                            "contributor_name": {"type": "literal", "value": "Bob Two"},
+                            "contributor_role": {"type": "literal", "value": "author"},
+                        },
+                    ]
+                }
+            },
+        )
+        # Chunk 2 resolves both publications and their contributors.
+        for pub, title in ((pub1, "Paper One"), (pub2, "Paper Two")):
+            httpx_mock.add_response(
+                url=SPARQL_ENDPOINT,
+                method="POST",
+                match_content=_query_body(
+                    idref_queries.PUBLICATION, "$publication", pub
+                ),
+                json={
+                    "results": {
+                        "bindings": [
+                            {"title": {"type": "literal", "value": title}},
+                        ]
+                    }
+                },
+            )
+            httpx_mock.add_response(
+                url=SPARQL_ENDPOINT,
+                method="POST",
+                match_content=_query_body(
+                    idref_queries.PUBLICATION_ORGANIZATIONS, "$publication", pub
+                ),
+                json={"results": {"bindings": []}},
+            )
+        for person, name in ((bob1, "Bob One"), (bob2, "Bob Two")):
+            httpx_mock.add_response(
+                url=SPARQL_ENDPOINT,
+                method="POST",
+                match_content=_query_body(idref_queries.PERSON, "$person", person),
+                json={
+                    "results": {
+                        "bindings": [
+                            {"name": {"type": "literal", "value": name}},
+                        ]
+                    }
+                },
+            )
+
+        params = {"root": self.ALICE, "type": "person", "depth": 2, "max_nodes": 1}
+        first = await async_client.get("/api/graph/", params=params)
+        assert first.status_code == 200
+        chunk1 = first.json()
+        assert chunk1["truncated"] is True
+        assert chunk1["continuation_id"] is not None
+        assert {n["id"] for n in chunk1["nodes"]} == {self.ALICE}
+
+        resume = {**params, "max_nodes": 4, "continuation": chunk1["continuation_id"]}
+        second = await async_client.get("/api/graph/", params=resume)
+        assert second.status_code == 200
+        chunk2 = second.json()
+
+        chunk2_node_ids = {n["id"] for n in chunk2["nodes"]}
+        assert pub2 in chunk2_node_ids
+        assert any(
+            e["source"] == pub2 and e["target"] == bob2 and e["type"] == "author"
+            for e in chunk2["edges"]
+        )
