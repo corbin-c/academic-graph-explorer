@@ -100,10 +100,11 @@ export function GraphPage() {
     fetchGraphTraversal(entityId, entityType, expandDepth)
       .then((nh) => {
         setNeighborhood(nh)
-        if (nh.continuation_id) {
+        const continuationId = nh.continuation_id
+        if (continuationId) {
           setContinuations((prev) => ({
             ...prev,
-            [entityId]: nh.continuation_id,
+            [entityId]: continuationId,
           }))
         }
       })
@@ -117,10 +118,11 @@ export function GraphPage() {
     try {
       const newNh = await fetchGraphTraversal(nodeId, type, expandDepth)
       setNeighborhood((prev) => (prev ? mergeNeighborhood(prev, newNh) : newNh))
-      if (newNh.continuation_id) {
+      const continuationId = newNh.continuation_id
+      if (continuationId) {
         setContinuations((prev) => ({
           ...prev,
-          [nodeId]: newNh.continuation_id,
+          [nodeId]: continuationId,
         }))
       }
       setExpandedNodeIds((prev) => new Set(prev).add(nodeId))
