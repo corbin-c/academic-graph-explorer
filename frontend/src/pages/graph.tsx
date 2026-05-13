@@ -26,7 +26,9 @@ export function GraphPage() {
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set())
   const [expandingNodeId, setExpandingNodeId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [expandDepth, setExpandDepth] = useState(2)
+  const [expandDepth, setExpandDepth] = useState(
+    parseInt(searchParams.get("depth") || "1")
+  )
 
   const matchCount = useMemo(() => {
     if (!searchQuery.trim() || !neighborhood) return 0
@@ -40,7 +42,7 @@ export function GraphPage() {
     if (!entityId) return
     setIsLoading(true)
     setError(null)
-    fetchGraphTraversal(entityId, entityType)
+    fetchGraphTraversal(entityId, entityType, expandDepth)
       .then(setNeighborhood)
       .catch((e) => setError(e instanceof Error ? e : new Error(String(e))))
       .finally(() => setIsLoading(false))
