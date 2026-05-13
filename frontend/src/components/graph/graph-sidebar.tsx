@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { X, GitBranch, ChevronRight, Loader2, Info } from "lucide-react"
+import { X, GitBranch, ChevronRight, Loader2, Info, MoreHorizontal } from "lucide-react"
 import type { Neighborhood, GraphEntity, EntityDetail } from "@/lib/api"
 import { fetchEntityDetail } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,9 @@ interface GraphSidebarProps {
   expandedNodeIds: Set<string>
   expandingNodeId: string | null
   onExpand: (nodeId: string, type: string) => void
+  loadingMore: boolean
+  hasContinuation: boolean
+  onLoadMore: () => void
 }
 
 function DetailContent({ detail }: { detail: EntityDetail }) {
@@ -53,6 +56,9 @@ export function GraphSidebar({
   expandedNodeIds,
   expandingNodeId,
   onExpand,
+  loadingMore,
+  hasContinuation,
+  onLoadMore,
 }: GraphSidebarProps) {
   const [detailRequested, setDetailRequested] = useState(false)
 
@@ -139,25 +145,42 @@ export function GraphSidebar({
             </>
           )}
 
-          {/* Expand Graph */}
+          {/* Expand Graph / Load more */}
           <Separator />
-          <Button
-            variant="outline"
-            disabled={
-              expandedNodeIds.has(selectedNode.id) ||
-              expandingNodeId === selectedNode.id
-            }
-            className="w-full"
-            onClick={() => onExpand(selectedNode.id, selectedNode.type)}
-          >
-            {expandingNodeId === selectedNode.id ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <GitBranch className="mr-2 h-4 w-4" />
-            )}
-            Expand Graph
-            <ChevronRight className="ml-auto h-4 w-4" />
-          </Button>
+          {hasContinuation ? (
+            <Button
+              variant="outline"
+              disabled={loadingMore}
+              className="w-full"
+              onClick={onLoadMore}
+            >
+              {loadingMore ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <MoreHorizontal className="mr-2 h-4 w-4" />
+              )}
+              Load more
+              <ChevronRight className="ml-auto h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              disabled={
+                expandedNodeIds.has(selectedNode.id) ||
+                expandingNodeId === selectedNode.id
+              }
+              className="w-full"
+              onClick={() => onExpand(selectedNode.id, selectedNode.type)}
+            >
+              {expandingNodeId === selectedNode.id ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <GitBranch className="mr-2 h-4 w-4" />
+              )}
+              Expand Graph
+              <ChevronRight className="ml-auto h-4 w-4" />
+            </Button>
+          )}
 
           {/* Linked Nodes */}
           <Separator />

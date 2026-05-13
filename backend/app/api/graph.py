@@ -26,8 +26,8 @@ async def traverse_graph(
         ..., description="Entity type: person, organization, or publication"
     ),
     depth: int = Query(2, ge=1, le=10, description="Number of hops from root"),
-    max_nodes: int = Query(40, ge=1, description="Maximum number of nodes to return"),
-    max_edges: int = Query(80, ge=1, description="Maximum number of edges to return"),
+    max_nodes: int = Query(20, ge=1, description="Maximum number of nodes to return"),
+    max_edges: int = Query(40, ge=1, description="Maximum number of edges to return"),
     continuation: str | None = Query(
         None, description="Continuation session id from a prior truncated response"
     ),
