@@ -10,6 +10,8 @@ The central interaction is **progressive graph exploration**: a user starts from
 
 > The current implementation uses [IdRef](https://www.idref.fr/) as its primary data source, providing a focused starting point within the French scholarly information ecosystem.
 
+**Live demo available at https://academic-graph-explorer.nibroc.fr/**
+
 ![Screenshot](./screenshot.png)
 
 _Example exploration of [PRISM — Laboratoire Perception, Représentations, Image, Son, Musique (UMR 7061)](http://www.prism.cnrs.fr), Marseille. The graph shows researchers, publications, and institutional relationships discovered from the scholarly data._
