@@ -21,7 +21,7 @@ interface GraphSidebarProps {
 }
 
 function DetailContent({ detail }: { detail: EntityDetail }) {
-  const hasNote = detail.note != null
+  const hasNote = "note" in detail && detail.note != null
   const orgs = "organizations" in detail ? detail.organizations : []
   const hasOrgs = orgs.length > 0
 
@@ -35,7 +35,7 @@ function DetailContent({ detail }: { detail: EntityDetail }) {
 
   return (
     <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-      {detail.note && <p>{detail.note}</p>}
+      {"note" in detail && detail.note && <p>{detail.note}</p>}
       {"organizations" in detail && detail.organizations.length > 0 && (
         <p>
           Organizations: {detail.organizations.map((o) => o.label).join(", ")}
