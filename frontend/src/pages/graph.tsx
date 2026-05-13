@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useParams, useSearchParams, Link } from "react-router-dom"
 import { ArrowLeft, Search } from "lucide-react"
 import {
   fetchGraphTraversal,
   type Neighborhood,
   type GraphEntity,
+  type GraphEdge,
 } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
@@ -12,6 +13,36 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { GraphCanvas } from "@/components/graph/graph-canvas"
 import { GraphSidebar } from "@/components/graph/graph-sidebar"
+
+// Max number of continuation chunks fetched automatically before the user
+// must click "Load more".
+const AUTO_BATCH_LIMIT = 3
+
+/** Merge two neighborhoods, deduping nodes by id and edges by (source, target, type).
+ *  With `takeContinuation`, the continuation fields come from `next` (a follow-up
+ *  chunk); otherwise they are preserved from `prev` (expansion does not advance
+ *  the root's continuation). */
+function dedupMerge(
+  prev: Neighborhood,
+  next: Neighborhood,
+  takeContinuation: boolean
+): Neighborhood {
+  const existingIds = new Set(prev.nodes.map((n) => n.id))
+  const edgeKey = (e: GraphEdge) => `${e.source}→${e.target}→${e.type}`
+  const existingEdgeKeys = new Set(prev.edges.map(edgeKey))
+  return {
+    center: prev.center,
+    nodes: [...prev.nodes, ...next.nodes.filter((n) => !existingIds.has(n.id))],
+    edges: [
+      ...prev.edges,
+      ...next.edges.filter((e) => !existingEdgeKeys.has(edgeKey(e))),
+    ],
+    truncated: takeContinuation ? next.truncated : prev.truncated,
+    continuation_id: takeContinuation
+      ? next.continuation_id
+      : prev.continuation_id,
+  }
+}
 
 export function GraphPage() {
   const { entityId } = useParams<{ entityId: string }>()
@@ -29,6 +60,11 @@ export function GraphPage() {
   const [expandDepth, setExpandDepth] = useState(
     parseInt(searchParams.get("depth") || "1")
   )
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [chunksFetched, setChunksFetched] = useState(0)
+
+  const continuationId = neighborhood?.continuation_id ?? null
+  const truncated = neighborhood?.truncated ?? false
 
   const matchCount = useMemo(() => {
     if (!searchQuery.trim() || !neighborhood) return 0
@@ -42,6 +78,7 @@ export function GraphPage() {
     if (!entityId) return
     setIsLoading(true)
     setError(null)
+    setChunksFetched(0)
     fetchGraphTraversal(entityId, entityType, expandDepth)
       .then(setNeighborhood)
       .catch((e) => setError(e instanceof Error ? e : new Error(String(e))))
@@ -53,24 +90,7 @@ export function GraphPage() {
     setExpandingNodeId(nodeId)
     try {
       const newNh = await fetchGraphTraversal(nodeId, type, expandDepth)
-      setNeighborhood((prev) => {
-        if (!prev) return newNh
-        const existingIds = new Set(prev.nodes.map((n) => n.id))
-        const edgeKey = (e: { source: string; target: string }) =>
-          `${e.source}→${e.target}`
-        const existingEdgeKeys = new Set(prev.edges.map(edgeKey))
-        return {
-          center: prev.center,
-          nodes: [
-            ...prev.nodes,
-            ...newNh.nodes.filter((n) => !existingIds.has(n.id)),
-          ],
-          edges: [
-            ...prev.edges,
-            ...newNh.edges.filter((e) => !existingEdgeKeys.has(edgeKey(e))),
-          ],
-        }
-      })
+      setNeighborhood((prev) => (prev ? dedupMerge(prev, newNh, false) : newNh))
       setExpandedNodeIds((prev) => new Set(prev).add(nodeId))
     } catch {
       // Expansion errors are non-critical — silently ignore
@@ -78,6 +98,41 @@ export function GraphPage() {
       setExpandingNodeId(null)
     }
   }
+
+  // Fetch the next continuation chunk and merge it into the neighborhood.
+  const loadMoreChunk = useCallback(async () => {
+    if (!entityId || !continuationId || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const next = await fetchGraphTraversal(
+        entityId,
+        entityType,
+        expandDepth,
+        continuationId
+      )
+      setNeighborhood((prev) => (prev ? dedupMerge(prev, next, true) : next))
+      setChunksFetched((c) => c + 1)
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [entityId, entityType, expandDepth, continuationId, loadingMore])
+
+  // Auto-continue: fetch up to AUTO_BATCH_LIMIT chunks automatically.
+  useEffect(() => {
+    if (
+      !truncated ||
+      !continuationId ||
+      loadingMore ||
+      chunksFetched >= AUTO_BATCH_LIMIT
+    )
+      return
+    // Defer to a macrotask so the fetch is scheduled after this commit rather
+    // than firing setState synchronously inside the effect.
+    const timer = setTimeout(loadMoreChunk, 0)
+    return () => clearTimeout(timer)
+  }, [truncated, continuationId, chunksFetched, loadingMore, loadMoreChunk])
 
   const selectedNode = useMemo<GraphEntity | undefined>(() => {
     if (!neighborhood || !selectedNodeId) return undefined
@@ -189,6 +244,16 @@ export function GraphPage() {
               </option>
             ))}
           </select>
+          {truncated && continuationId && chunksFetched >= AUTO_BATCH_LIMIT && (
+            <button
+              type="button"
+              onClick={loadMoreChunk}
+              disabled={loadingMore}
+              className="h-8 shrink-0 rounded-none border border-border bg-background px-2 text-xs hover:bg-accent disabled:opacity-50"
+            >
+              {loadingMore ? "Loading…" : "Load more"}
+            </button>
+          )}
         </footer>
       )}
     </div>

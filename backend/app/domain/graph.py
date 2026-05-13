@@ -28,3 +28,5 @@ class Neighborhood(BaseModel):
     center: Entity
     nodes: list[EntityNode]
     edges: list[Relationship]
+    truncated: bool = False
+    continuation_id: str | None = None

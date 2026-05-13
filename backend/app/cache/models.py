@@ -21,3 +21,16 @@ class CachedQuery(Base):
         DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
     ttl_seconds = Column(Integer, default=3600, nullable=False)
+
+
+class TraversalSession(Base):
+    """Persisted resume state for truncated graph traversals."""
+
+    __tablename__ = "traversal_sessions"
+
+    id = Column(String(36), primary_key=True)
+    state_json = Column(Text, nullable=False)
+    created_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    ttl_seconds = Column(Integer, default=900, nullable=False)

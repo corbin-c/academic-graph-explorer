@@ -76,6 +76,9 @@ export function GraphCanvas({
       return
     }
 
+    // Preserve current zoom/pan across re-renders
+    const savedTransform = d3.zoomTransform(svgRef.current!)
+
     // Clear previous content
     svg.selectAll("*").remove()
 
@@ -149,6 +152,7 @@ export function GraphCanvas({
 
     svg.call(zoom)
     zoomRef.current = zoom
+    svg.call(zoom.transform, savedTransform)
 
     // Click on empty space to deselect
     svg.on("click", (event) => {

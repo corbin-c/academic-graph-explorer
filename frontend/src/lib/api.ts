@@ -89,10 +89,13 @@ export async function fetchEntityDetail(
 export async function fetchGraphTraversal(
   root: string,
   type: string,
-  depth: number = 1
+  depth: number = 1,
+  continuation?: string
 ): Promise<Neighborhood> {
   const { data, error } = await client.GET("/api/graph/", {
-    params: { query: { root, type, depth } },
+    params: {
+      query: { root, type, depth, ...(continuation ? { continuation } : {}) },
+    },
   })
   if (error) throw new Error("Graph traversal failed", { cause: error })
   return data!

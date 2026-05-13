@@ -33,7 +33,8 @@ export interface paths {
          * @description Progressive graph exploration starting from a root entity.
          *
          *     Returns a bounded Neighborhood: the center entity, all discovered
-         *     nodes, and the edges between them.
+         *     nodes, and the edges between them. When truncated, a ``continuation_id``
+         *     is returned so a follow-up request can fetch the next chunk.
          */
         get: operations["traverse_graph_api_graph__get"];
         put?: never;
@@ -211,6 +212,13 @@ export interface components {
             nodes: (components["schemas"]["Person"] | components["schemas"]["Organization"] | components["schemas"]["Publication"])[];
             /** Edges */
             edges: components["schemas"]["Relationship"][];
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+            /** Continuation Id */
+            continuation_id?: string | null;
         };
         /**
          * Organization
@@ -366,6 +374,12 @@ export interface operations {
                 type: string;
                 /** @description Number of hops from root */
                 depth?: number;
+                /** @description Maximum number of nodes to return */
+                max_nodes?: number;
+                /** @description Maximum number of edges to return */
+                max_edges?: number;
+                /** @description Continuation session id from a prior truncated response */
+                continuation?: string | null;
             };
             header?: never;
             path?: never;
