@@ -29,9 +29,26 @@ export function SearchResults({
     return (
       <p>
         Try it:{" "}
-        <a href="/graph/056802315?type=person&depth=2">Didier Veillon</a> |{" "}
-        <a href="/graph/227816196?type=organization&depth=2">PRISM Lab</a> |{" "}
-        <a href="/graph/139753753?type=person&depth=2">Marin Dacos</a>
+        <a
+          className="hover:underline"
+          href="/graph/056802315?type=person&depth=2"
+        >
+          Didier Veillon
+        </a>{" "}
+        |{" "}
+        <a
+          className="hover:underline"
+          href="/graph/227816196?type=organization&depth=2"
+        >
+          PRISM Lab
+        </a>{" "}
+        |{" "}
+        <a
+          className="hover:underline"
+          href="/graph/139753753?type=person&depth=2"
+        >
+          Marin Dacos
+        </a>
       </p>
     )
   }
